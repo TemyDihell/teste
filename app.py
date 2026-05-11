@@ -15,7 +15,7 @@ st.sidebar.title("Upload de Dados")
 
 arquivo = st.sidebar.file_uploader(
     "Selecione a planilha Excel",
-    type=["xlsx"]
+    type=["csv"]
 )
 
 if arquivo:
