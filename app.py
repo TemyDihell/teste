@@ -24,16 +24,9 @@ if arquivo:
 
     st.sidebar.header("Filtros")
 
-    anos = sorted(df["Ano"].dropna().unique())
     vendedores = sorted(df["Vendedor"].dropna().unique())
     equipes = sorted(df["Equipe"].dropna().unique())
     cidades = sorted(df["Cidade"].dropna().unique())
-
-    filtro_ano = st.sidebar.multiselect(
-        "Ano",
-        anos,
-        default=anos
-    )
 
     filtro_vendedor = st.sidebar.multiselect(
         "Vendedor",
