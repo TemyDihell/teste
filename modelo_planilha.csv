@@ -1,0 +1,5 @@
+
+Data,Ano,Mês,Vendedor,Equipe,Cidade,Cliente,Fabricante,Produto,Quantidade,Valor Venda
+2026-01-10,2026,Janeiro,Carlos,Equipe Norte,Salvador,Cliente A,Nestlé,Café,10,1500
+2026-01-11,2026,Janeiro,Ana,Equipe Sul,Feira de Santana,Cliente B,Coca-Cola,Refrigerante,15,2200
+2026-01-12,2026,Janeiro,João,Equipe Norte,Salvador,Cliente C,Ambev,Cerveja,20,3000
