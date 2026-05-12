@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -15,18 +14,56 @@ st.sidebar.title("Upload de Dados")
 
 arquivo = st.sidebar.file_uploader(
     "Selecione a planilha Excel",
-    type=["csv"]
+    type=["xlsx", "xls"]
 )
 
 if arquivo:
 
-    df = pd.read_excel(arquivo)
+    try:
+        df = pd.read_excel(
+            arquivo,
+            engine="openpyxl"
+        )
+
+    except Exception as e:
+        st.error(f"Erro ao ler o arquivo Excel: {e}")
+        st.stop()
+
+    colunas_necessarias = [
+        "Ano",
+        "Vendedor",
+        "Equipe",
+        "Cidade",
+        "Valor Venda",
+        "Quantidade",
+        "Cliente",
+        "Fabricante",
+        "Produto"
+    ]
+
+    colunas_faltando = [
+        col for col in colunas_necessarias
+        if col not in df.columns
+    ]
+
+    if colunas_faltando:
+        st.error(
+            f"As seguintes colunas estão faltando na planilha: {colunas_faltando}"
+        )
+        st.stop()
 
     st.sidebar.header("Filtros")
 
+    anos = sorted(df["Ano"].dropna().unique())
     vendedores = sorted(df["Vendedor"].dropna().unique())
     equipes = sorted(df["Equipe"].dropna().unique())
     cidades = sorted(df["Cidade"].dropna().unique())
+
+    filtro_ano = st.sidebar.multiselect(
+        "Ano",
+        anos,
+        default=anos
+    )
 
     filtro_vendedor = st.sidebar.multiselect(
         "Vendedor",
@@ -125,7 +162,7 @@ if arquivo:
         df["Fabricante"]
     )
 
-    batalha = batalha.applymap(
+    batalha = batalha.map(
         lambda x: "✅" if x > 0 else "❌"
     )
 
@@ -150,4 +187,6 @@ if arquivo:
     )
 
 else:
-    st.info("Faça upload da planilha Excel para visualizar o dashboard.")
+    st.info(
+        "Faça upload da planilha Excel para visualizar o dashboard."
+    )
