@@ -144,6 +144,7 @@ if arquivo:
         df.groupby("Cidade")["Valor Venda"]
         .sum()
         .reset_index()
+        .sort_values(by="Valor Venda", ascending=False)
     )
 
     fig_cidade = px.bar(
