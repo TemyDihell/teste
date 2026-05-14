@@ -18,14 +18,8 @@ st.set_page_config(
 st.title("📊 Dashboard Comercial BI")
 
 # =========================================================
-# GOOGLE DRIVE
+# FUNÇÃO GOOGLE DRIVE
 # =========================================================
-
-st.sidebar.header("📂 Google Drive")
-
-link_drive = st.sidebar.text_input(
-    "Cole o link da planilha"
-)
 
 def converter_link_drive(link):
 
@@ -42,70 +36,152 @@ def converter_link_drive(link):
 
 
 # =========================================================
-# LEITURA DOS DADOS
+# SIDEBAR
 # =========================================================
 
-if link_drive:
+st.sidebar.header("📂 Planilhas Google Drive")
 
-    url_excel = converter_link_drive(link_drive)
+link_meta = st.sidebar.text_input(
+    "🔹 Link Planilha de Metas"
+)
 
-    if not url_excel:
-        st.error("Link inválido.")
+link_historico = st.sidebar.text_input(
+    "🔹 Link Planilha Ano até Mês Anterior"
+)
+
+link_mes = st.sidebar.text_input(
+    "🔹 Link Planilha Mês Atual"
+)
+
+# =========================================================
+# VALIDAÇÃO
+# =========================================================
+
+if link_meta and link_historico and link_mes:
+
+    url_meta = converter_link_drive(link_meta)
+    url_historico = converter_link_drive(link_historico)
+    url_mes = converter_link_drive(link_mes)
+
+    if not url_meta or not url_historico or not url_mes:
+        st.error("Um dos links do Google Drive é inválido.")
         st.stop()
+
+    # =====================================================
+    # LEITURA DAS PLANILHAS
+    # =====================================================
 
     try:
 
-        df = pd.read_excel(
-            url_excel,
+        df_meta = pd.read_excel(
+            url_meta,
+            engine="openpyxl"
+        )
+
+        df_historico = pd.read_excel(
+            url_historico,
+            engine="openpyxl"
+        )
+
+        df_mes = pd.read_excel(
+            url_mes,
             engine="openpyxl"
         )
 
     except Exception as e:
-        st.error(f"Erro ao carregar Excel: {e}")
+        st.error(f"Erro ao carregar planilhas: {e}")
         st.stop()
+
+    # =====================================================
+    # UNIFICAR VENDAS
+    # =====================================================
+
+    df_vendas = pd.concat(
+        [df_historico, df_mes],
+        ignore_index=True
+    )
 
     # =====================================================
     # COLUNAS NECESSÁRIAS
     # =====================================================
 
-    colunas_necessarias = [
+    colunas_vendas = [
         "Data",
         "Vendedor",
         "Equipe",
         "Cidade",
-        "Valor Venda",
-        "Quantidade",
         "Cliente",
         "Fabricante",
         "Produto",
+        "Quantidade",
+        "Valor Venda"
+    ]
+
+    colunas_meta = [
+        "Ano",
+        "Mes",
+        "Vendedor",
         "Meta"
     ]
 
-    faltando = [
-        col for col in colunas_necessarias
-        if col not in df.columns
+    faltando_vendas = [
+        c for c in colunas_vendas
+        if c not in df_vendas.columns
     ]
 
-    if faltando:
-        st.error(f"Colunas faltando: {faltando}")
+    faltando_meta = [
+        c for c in colunas_meta
+        if c not in df_meta.columns
+    ]
+
+    if faltando_vendas:
+        st.error(
+            f"Colunas faltando nas vendas: {faltando_vendas}"
+        )
+        st.stop()
+
+    if faltando_meta:
+        st.error(
+            f"Colunas faltando nas metas: {faltando_meta}"
+        )
         st.stop()
 
     # =====================================================
     # TRATAMENTO
     # =====================================================
 
-    df["Data"] = pd.to_datetime(df["Data"])
+    df_vendas["Data"] = pd.to_datetime(
+        df_vendas["Data"]
+    )
 
-    df["Ano"] = df["Data"].dt.year
-    df["Mes"] = df["Data"].dt.month
-    df["Dia"] = df["Data"].dt.day
+    df_vendas["Ano"] = (
+        df_vendas["Data"].dt.year
+    )
 
-    df["Nome Mes"] = df["Mes"].apply(
-        lambda x: calendar.month_abbr[x]
+    df_vendas["Mes"] = (
+        df_vendas["Data"].dt.month
+    )
+
+    df_vendas["Nome Mes"] = (
+        df_vendas["Mes"]
+        .apply(lambda x: calendar.month_abbr[x])
     )
 
     ano_atual = datetime.now().year
     mes_atual = datetime.now().month
+
+    # =====================================================
+    # JUNÇÃO META + VENDAS
+    # =====================================================
+
+    df = pd.merge(
+        df_vendas,
+        df_meta,
+        how="left",
+        on=["Ano", "Mes", "Vendedor"]
+    )
+
+    df["Meta"] = df["Meta"].fillna(0)
 
     # =====================================================
     # FILTROS
@@ -113,15 +189,16 @@ if link_drive:
 
     st.sidebar.header("🎯 Filtros")
 
-    anos = sorted(df["Ano"].unique())
-    vendedores = sorted(df["Vendedor"].dropna().unique())
-    equipes = sorted(df["Equipe"].dropna().unique())
-    cidades = sorted(df["Cidade"].dropna().unique())
+    vendedores = sorted(
+        df["Vendedor"].dropna().unique()
+    )
 
-    filtro_ano = st.sidebar.multiselect(
-        "Ano",
-        anos,
-        default=anos
+    equipes = sorted(
+        df["Equipe"].dropna().unique()
+    )
+
+    cidades = sorted(
+        df["Cidade"].dropna().unique()
     )
 
     filtro_vendedor = st.sidebar.multiselect(
@@ -143,7 +220,6 @@ if link_drive:
     )
 
     filtro = (
-        df["Ano"].isin(filtro_ano) &
         df["Vendedor"].isin(filtro_vendedor) &
         df["Equipe"].isin(filtro_equipe) &
         df["Cidade"].isin(filtro_cidade)
@@ -152,7 +228,7 @@ if link_drive:
     df = df[filtro]
 
     # =====================================================
-    # KPIs PRINCIPAIS
+    # KPIs
     # =====================================================
 
     faturamento = df["Valor Venda"].sum()
@@ -161,7 +237,9 @@ if link_drive:
 
     clientes = df["Cliente"].nunique()
 
-    meta_total = df["Meta"].sum()
+    meta_total = (
+        df_meta["Meta"].sum()
+    )
 
     atingimento = (
         (faturamento / meta_total) * 100
@@ -173,7 +251,9 @@ if link_drive:
         if clientes > 0 else 0
     )
 
-    mix_produtos = df["Produto"].nunique()
+    mix_produtos = (
+        df["Produto"].nunique()
+    )
 
     c1, c2, c3, c4, c5, c6 = st.columns(6)
 
@@ -210,14 +290,15 @@ if link_drive:
     st.divider()
 
     # =====================================================
-    # FATURAMENTO MENSAL
+    # COMPARATIVO MENSAL
     # =====================================================
 
-    st.subheader("📈 Comparativo Ano Atual x Ano Anterior")
+    st.subheader(
+        "📈 Comparativo Ano Atual x Ano Anterior"
+    )
 
     comparativo = (
-        df[df["Ano"].isin([ano_atual, ano_atual - 1])]
-        .groupby(["Ano", "Mes"])["Valor Venda"]
+        df.groupby(["Ano", "Mes"])["Valor Venda"]
         .sum()
         .reset_index()
     )
@@ -241,8 +322,8 @@ if link_drive:
 
     st.subheader("🎯 Meta x Realizado")
 
-    meta_df = (
-        df.groupby("Mes")
+    meta_realizado = (
+        df.groupby(["Mes"])
         .agg({
             "Valor Venda": "sum",
             "Meta": "sum"
@@ -251,7 +332,7 @@ if link_drive:
     )
 
     fig_meta = px.bar(
-        meta_df,
+        meta_realizado,
         x="Mes",
         y=["Valor Venda", "Meta"],
         barmode="group"
@@ -263,7 +344,7 @@ if link_drive:
     )
 
     # =====================================================
-    # GAUGE KPI
+    # GAUGE META
     # =====================================================
 
     st.subheader("🚦 Indicador de Meta")
@@ -271,10 +352,9 @@ if link_drive:
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=atingimento,
-        title={"text": "Atingimento da Meta (%)"},
+        title={"text": "Atingimento (%)"},
         gauge={
             "axis": {"range": [0, 150]},
-            "bar": {"thickness": 0.3},
             "steps": [
                 {"range": [0, 70], "color": "red"},
                 {"range": [70, 100], "color": "yellow"},
@@ -292,9 +372,9 @@ if link_drive:
     # RANKING VENDEDORES
     # =====================================================
 
-    st.subheader("🏆 Ranking Vendedores")
+    st.subheader("🏆 Ranking de Vendedores")
 
-    vendedor_df = (
+    ranking = (
         df.groupby("Vendedor")["Valor Venda"]
         .sum()
         .reset_index()
@@ -304,77 +384,17 @@ if link_drive:
         )
     )
 
-    fig_vendedor = px.bar(
-        vendedor_df,
+    fig_rank = px.bar(
+        ranking,
         x="Vendedor",
         y="Valor Venda",
         text_auto=True
     )
 
     st.plotly_chart(
-        fig_vendedor,
+        fig_rank,
         use_container_width=True
     )
-
-    # =====================================================
-    # TOP E FLOP
-    # =====================================================
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.subheader("🔥 TOP 10 Clientes")
-
-        top_clientes = (
-            df.groupby("Cliente")["Valor Venda"]
-            .sum()
-            .reset_index()
-            .sort_values(
-                by="Valor Venda",
-                ascending=False
-            )
-            .head(10)
-        )
-
-        fig_top = px.bar(
-            top_clientes,
-            x="Cliente",
-            y="Valor Venda",
-            text_auto=True
-        )
-
-        st.plotly_chart(
-            fig_top,
-            use_container_width=True
-        )
-
-    with col2:
-
-        st.subheader("❄️ FLOP 10 Clientes")
-
-        flop_clientes = (
-            df.groupby("Cliente")["Valor Venda"]
-            .sum()
-            .reset_index()
-            .sort_values(
-                by="Valor Venda",
-                ascending=True
-            )
-            .head(10)
-        )
-
-        fig_flop = px.bar(
-            flop_clientes,
-            x="Cliente",
-            y="Valor Venda",
-            text_auto=True
-        )
-
-        st.plotly_chart(
-            fig_flop,
-            use_container_width=True
-        )
 
     # =====================================================
     # EQUIPE
@@ -382,14 +402,14 @@ if link_drive:
 
     st.subheader("👥 Desempenho por Equipe")
 
-    equipe_df = (
+    equipe = (
         df.groupby("Equipe")["Valor Venda"]
         .sum()
         .reset_index()
     )
 
     fig_equipe = px.pie(
-        equipe_df,
+        equipe,
         names="Equipe",
         values="Valor Venda"
     )
@@ -405,14 +425,14 @@ if link_drive:
 
     st.subheader("🏙️ Desempenho por Cidade")
 
-    cidade_df = (
+    cidade = (
         df.groupby("Cidade")["Valor Venda"]
         .sum()
         .reset_index()
     )
 
     fig_cidade = px.bar(
-        cidade_df,
+        cidade,
         x="Cidade",
         y="Valor Venda",
         text_auto=True
@@ -424,12 +444,14 @@ if link_drive:
     )
 
     # =====================================================
-    # MIX POR CLIENTE
+    # MIX CLIENTE
     # =====================================================
 
-    st.subheader("📦 Mix de Produtos por Cliente")
+    st.subheader(
+        "📦 Mix de Produtos por Cliente"
+    )
 
-    mix_df = (
+    mix = (
         df.groupby("Cliente")["Produto"]
         .nunique()
         .reset_index()
@@ -441,7 +463,7 @@ if link_drive:
     )
 
     fig_mix = px.bar(
-        mix_df,
+        mix,
         x="Cliente",
         y="Produto",
         text_auto=True
@@ -456,15 +478,18 @@ if link_drive:
     # BATALHA NAVAL
     # =====================================================
 
-    st.subheader("📌 Batalha Naval - Mês Atual")
+    st.subheader(
+        "📌 Batalha Naval - Mês Atual"
+    )
 
-    df_mes = df[
+    df_batalha = df[
         (df["Ano"] == ano_atual) &
         (df["Mes"] == mes_atual)
     ]
 
     top_fabricantes = (
-        df_mes.groupby("Fabricante")["Valor Venda"]
+        df_batalha.groupby("Fabricante")
+        ["Valor Venda"]
         .sum()
         .sort_values(
             ascending=False
@@ -473,13 +498,14 @@ if link_drive:
         .index
     )
 
-    df_mes = df_mes[
-        df_mes["Fabricante"].isin(top_fabricantes)
+    df_batalha = df_batalha[
+        df_batalha["Fabricante"]
+        .isin(top_fabricantes)
     ]
 
     batalha = pd.crosstab(
-        df_mes["Cliente"],
-        df_mes["Fabricante"]
+        df_batalha["Cliente"],
+        df_batalha["Fabricante"]
     )
 
     batalha = batalha.map(
@@ -508,8 +534,8 @@ if link_drive:
             "Produto"
         ])
         .agg({
-            "Valor Venda": "sum",
-            "Quantidade": "sum"
+            "Quantidade": "sum",
+            "Valor Venda": "sum"
         })
         .reset_index()
     )
@@ -523,5 +549,5 @@ if link_drive:
 else:
 
     st.info(
-        "Cole o link compartilhado do Google Drive."
+        "Informe os 3 links das planilhas."
     )
