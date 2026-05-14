@@ -4,6 +4,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import calendar
+import requests
+from io import BytesIO
 
 # =========================================================
 # CONFIGURAÇÃO DA PÁGINA
@@ -18,22 +20,59 @@ st.set_page_config(
 st.title("📊 Dashboard Comercial BI")
 
 # =========================================================
-# FUNÇÃO GOOGLE DRIVE
+# FUNÇÕES GOOGLE DRIVE
 # =========================================================
 
-def converter_link_drive(link):
-
-    if "drive.google.com" not in link:
-        return None
+def extrair_file_id(link):
 
     try:
-        file_id = link.split("/d/")[1].split("/")[0]
 
-        return f"https://drive.google.com/uc?id={file_id}"
+        if "/d/" in link:
+            return link.split("/d/")[1].split("/")[0]
+
+        elif "id=" in link:
+            return link.split("id=")[1].split("&")[0]
+
+        return None
 
     except:
         return None
 
+
+@st.cache_data
+def carregar_excel_google_drive(link):
+
+    file_id = extrair_file_id(link)
+
+    if not file_id:
+        raise Exception(
+            "Link do Google Drive inválido."
+        )
+
+    url = (
+        f"https://drive.google.com/"
+        f"uc?export=download&id={file_id}"
+    )
+
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise Exception(
+            "Erro ao baixar arquivo do Google Drive."
+        )
+
+    try:
+
+        return pd.read_excel(
+            BytesIO(response.content),
+            engine="openpyxl"
+        )
+
+    except Exception as e:
+
+        raise Exception(
+            f"Erro ao ler Excel: {e}"
+        )
 
 # =========================================================
 # SIDEBAR
@@ -46,54 +85,53 @@ link_meta = st.sidebar.text_input(
 )
 
 link_historico = st.sidebar.text_input(
-    "🔹 Link Planilha Ano até Mês Anterior"
+    "🔹 Link Histórico Ano"
 )
 
 link_mes = st.sidebar.text_input(
-    "🔹 Link Planilha Mês Atual"
+    "🔹 Link Mês Atual"
 )
 
 # =========================================================
-# VALIDAÇÃO
+# PROCESSAMENTO
 # =========================================================
 
 if link_meta and link_historico and link_mes:
 
-    url_meta = converter_link_drive(link_meta)
-    url_historico = converter_link_drive(link_historico)
-    url_mes = converter_link_drive(link_mes)
-
-    if not url_meta or not url_historico or not url_mes:
-        st.error("Um dos links do Google Drive é inválido.")
-        st.stop()
-
-    # =====================================================
-    # LEITURA DAS PLANILHAS
-    # =====================================================
-
     try:
 
-        df_meta = pd.read_excel(
-            url_meta,
-            engine="openpyxl"
-        )
+        with st.spinner(
+            "Carregando planilhas..."
+        ):
 
-        df_historico = pd.read_excel(
-            url_historico,
-            engine="openpyxl"
-        )
+            df_meta = (
+                carregar_excel_google_drive(
+                    link_meta
+                )
+            )
 
-        df_mes = pd.read_excel(
-            url_mes,
-            engine="openpyxl"
-        )
+            df_historico = (
+                carregar_excel_google_drive(
+                    link_historico
+                )
+            )
+
+            df_mes = (
+                carregar_excel_google_drive(
+                    link_mes
+                )
+            )
 
     except Exception as e:
-        st.error(f"Erro ao carregar planilhas: {e}")
+
+        st.error(
+            f"Erro ao carregar planilhas: {e}"
+        )
+
         st.stop()
 
     # =====================================================
-    # UNIFICAR VENDAS
+    # CONCATENAR VENDAS
     # =====================================================
 
     df_vendas = pd.concat(
@@ -102,7 +140,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # COLUNAS NECESSÁRIAS
+    # VALIDAÇÃO DE COLUNAS
     # =====================================================
 
     colunas_vendas = [
@@ -125,25 +163,31 @@ if link_meta and link_historico and link_mes:
     ]
 
     faltando_vendas = [
-        c for c in colunas_vendas
-        if c not in df_vendas.columns
+        col for col in colunas_vendas
+        if col not in df_vendas.columns
     ]
 
     faltando_meta = [
-        c for c in colunas_meta
-        if c not in df_meta.columns
+        col for col in colunas_meta
+        if col not in df_meta.columns
     ]
 
     if faltando_vendas:
+
         st.error(
-            f"Colunas faltando nas vendas: {faltando_vendas}"
+            f"Colunas faltando nas vendas: "
+            f"{faltando_vendas}"
         )
+
         st.stop()
 
     if faltando_meta:
+
         st.error(
-            f"Colunas faltando nas metas: {faltando_meta}"
+            f"Colunas faltando nas metas: "
+            f"{faltando_meta}"
         )
+
         st.stop()
 
     # =====================================================
@@ -151,7 +195,12 @@ if link_meta and link_historico and link_mes:
     # =====================================================
 
     df_vendas["Data"] = pd.to_datetime(
-        df_vendas["Data"]
+        df_vendas["Data"],
+        errors="coerce"
+    )
+
+    df_vendas = df_vendas.dropna(
+        subset=["Data"]
     )
 
     df_vendas["Ano"] = (
@@ -171,7 +220,7 @@ if link_meta and link_historico and link_mes:
     mes_atual = datetime.now().month
 
     # =====================================================
-    # JUNÇÃO META + VENDAS
+    # MERGE META + VENDAS
     # =====================================================
 
     df = pd.merge(
@@ -181,7 +230,10 @@ if link_meta and link_historico and link_mes:
         on=["Ano", "Mes", "Vendedor"]
     )
 
-    df["Meta"] = df["Meta"].fillna(0)
+    df["Meta"] = (
+        df["Meta"]
+        .fillna(0)
+    )
 
     # =====================================================
     # FILTROS
@@ -190,15 +242,33 @@ if link_meta and link_historico and link_mes:
     st.sidebar.header("🎯 Filtros")
 
     vendedores = sorted(
-        df["Vendedor"].dropna().unique()
+        df["Vendedor"]
+        .dropna()
+        .unique()
     )
 
     equipes = sorted(
-        df["Equipe"].dropna().unique()
+        df["Equipe"]
+        .dropna()
+        .unique()
     )
 
     cidades = sorted(
-        df["Cidade"].dropna().unique()
+        df["Cidade"]
+        .dropna()
+        .unique()
+    )
+
+    anos = sorted(
+        df["Ano"]
+        .dropna()
+        .unique()
+    )
+
+    filtro_ano = st.sidebar.multiselect(
+        "Ano",
+        anos,
+        default=anos
     )
 
     filtro_vendedor = st.sidebar.multiselect(
@@ -220,9 +290,20 @@ if link_meta and link_historico and link_mes:
     )
 
     filtro = (
-        df["Vendedor"].isin(filtro_vendedor) &
-        df["Equipe"].isin(filtro_equipe) &
-        df["Cidade"].isin(filtro_cidade)
+
+        df["Ano"].isin(filtro_ano) &
+
+        df["Vendedor"].isin(
+            filtro_vendedor
+        ) &
+
+        df["Equipe"].isin(
+            filtro_equipe
+        ) &
+
+        df["Cidade"].isin(
+            filtro_cidade
+        )
     )
 
     df = df[filtro]
@@ -231,14 +312,20 @@ if link_meta and link_historico and link_mes:
     # KPIs
     # =====================================================
 
-    faturamento = df["Valor Venda"].sum()
+    faturamento = (
+        df["Valor Venda"].sum()
+    )
 
-    quantidade = df["Quantidade"].sum()
+    quantidade = (
+        df["Quantidade"].sum()
+    )
 
-    clientes = df["Cliente"].nunique()
+    clientes = (
+        df["Cliente"].nunique()
+    )
 
     meta_total = (
-        df_meta["Meta"].sum()
+        df["Meta"].sum()
     )
 
     atingimento = (
@@ -298,7 +385,9 @@ if link_meta and link_historico and link_mes:
     )
 
     comparativo = (
-        df.groupby(["Ano", "Mes"])["Valor Venda"]
+        df.groupby(
+            ["Ano", "Mes"]
+        )["Valor Venda"]
         .sum()
         .reset_index()
     )
@@ -320,10 +409,12 @@ if link_meta and link_historico and link_mes:
     # META X REALIZADO
     # =====================================================
 
-    st.subheader("🎯 Meta x Realizado")
+    st.subheader(
+        "🎯 Meta x Realizado"
+    )
 
     meta_realizado = (
-        df.groupby(["Mes"])
+        df.groupby("Mes")
         .agg({
             "Valor Venda": "sum",
             "Meta": "sum"
@@ -347,21 +438,38 @@ if link_meta and link_historico and link_mes:
     # GAUGE META
     # =====================================================
 
-    st.subheader("🚦 Indicador de Meta")
+    st.subheader(
+        "🚦 Indicador de Meta"
+    )
 
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=atingimento,
-        title={"text": "Atingimento (%)"},
-        gauge={
-            "axis": {"range": [0, 150]},
-            "steps": [
-                {"range": [0, 70], "color": "red"},
-                {"range": [70, 100], "color": "yellow"},
-                {"range": [100, 150], "color": "green"}
-            ]
-        }
-    ))
+    fig_gauge = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=atingimento,
+            title={
+                "text": "Atingimento (%)"
+            },
+            gauge={
+                "axis": {
+                    "range": [0, 150]
+                },
+                "steps": [
+                    {
+                        "range": [0, 70],
+                        "color": "red"
+                    },
+                    {
+                        "range": [70, 100],
+                        "color": "yellow"
+                    },
+                    {
+                        "range": [100, 150],
+                        "color": "green"
+                    }
+                ]
+            }
+        )
+    )
 
     st.plotly_chart(
         fig_gauge,
@@ -372,10 +480,13 @@ if link_meta and link_historico and link_mes:
     # RANKING VENDEDORES
     # =====================================================
 
-    st.subheader("🏆 Ranking de Vendedores")
+    st.subheader(
+        "🏆 Ranking de Vendedores"
+    )
 
     ranking = (
-        df.groupby("Vendedor")["Valor Venda"]
+        df.groupby("Vendedor")
+        ["Valor Venda"]
         .sum()
         .reset_index()
         .sort_values(
@@ -397,13 +508,82 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
+    # TOP 10 CLIENTES
+    # =====================================================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.subheader(
+            "🔥 TOP 10 Clientes"
+        )
+
+        top_clientes = (
+            df.groupby("Cliente")
+            ["Valor Venda"]
+            .sum()
+            .reset_index()
+            .sort_values(
+                by="Valor Venda",
+                ascending=False
+            )
+            .head(10)
+        )
+
+        fig_top = px.bar(
+            top_clientes,
+            x="Cliente",
+            y="Valor Venda",
+            text_auto=True
+        )
+
+        st.plotly_chart(
+            fig_top,
+            use_container_width=True
+        )
+
+    with col2:
+
+        st.subheader(
+            "❄️ FLOP 10 Clientes"
+        )
+
+        flop_clientes = (
+            df.groupby("Cliente")
+            ["Valor Venda"]
+            .sum()
+            .reset_index()
+            .sort_values(
+                by="Valor Venda",
+                ascending=True
+            )
+            .head(10)
+        )
+
+        fig_flop = px.bar(
+            flop_clientes,
+            x="Cliente",
+            y="Valor Venda",
+            text_auto=True
+        )
+
+        st.plotly_chart(
+            fig_flop,
+            use_container_width=True
+        )
+
+    # =====================================================
     # EQUIPE
     # =====================================================
 
-    st.subheader("👥 Desempenho por Equipe")
+    st.subheader(
+        "👥 Desempenho por Equipe"
+    )
 
     equipe = (
-        df.groupby("Equipe")["Valor Venda"]
+        df.groupby("Equipe")
+        ["Valor Venda"]
         .sum()
         .reset_index()
     )
@@ -423,10 +603,13 @@ if link_meta and link_historico and link_mes:
     # CIDADE
     # =====================================================
 
-    st.subheader("🏙️ Desempenho por Cidade")
+    st.subheader(
+        "🏙️ Desempenho por Cidade"
+    )
 
     cidade = (
-        df.groupby("Cidade")["Valor Venda"]
+        df.groupby("Cidade")
+        ["Valor Venda"]
         .sum()
         .reset_index()
     )
@@ -444,15 +627,16 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # MIX CLIENTE
+    # MIX PRODUTOS CLIENTE
     # =====================================================
 
     st.subheader(
-        "📦 Mix de Produtos por Cliente"
+        "📦 Mix Produtos por Cliente"
     )
 
     mix = (
-        df.groupby("Cliente")["Produto"]
+        df.groupby("Cliente")
+        ["Produto"]
         .nunique()
         .reset_index()
         .sort_values(
@@ -488,8 +672,9 @@ if link_meta and link_historico and link_mes:
     ]
 
     top_fabricantes = (
-        df_batalha.groupby("Fabricante")
-        ["Valor Venda"]
+        df_batalha.groupby(
+            "Fabricante"
+        )["Valor Venda"]
         .sum()
         .sort_values(
             ascending=False
@@ -509,7 +694,8 @@ if link_meta and link_historico and link_mes:
     )
 
     batalha = batalha.map(
-        lambda x: "✅" if x > 0 else ""
+        lambda x:
+        "✅" if x > 0 else ""
     )
 
     st.dataframe(
@@ -522,7 +708,9 @@ if link_meta and link_historico and link_mes:
     # DETALHAMENTO
     # =====================================================
 
-    st.subheader("📋 Detalhamento Completo")
+    st.subheader(
+        "📋 Detalhamento Completo"
+    )
 
     detalhamento = (
         df.groupby([
@@ -549,5 +737,6 @@ if link_meta and link_historico and link_mes:
 else:
 
     st.info(
-        "Informe os 3 links das planilhas."
+        "Informe os 3 links "
+        "das planilhas do Google Drive."
     )
