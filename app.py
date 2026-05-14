@@ -347,7 +347,7 @@ if link_meta and link_historico and link_mes:
 
         
     faturamento = (
-        df["Valor Venda","df_Atual"].sum()
+        df["Valor Venda"].sum()
     )
 
     quantidade = (
