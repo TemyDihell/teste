@@ -345,13 +345,12 @@ if link_meta and link_historico and link_mes:
     # KPIs
     # =====================================================
 
-    df_Atual = df[
+        
+    faturamento = (
+        df[
         (df["Ano"] == ano_atual) &
         (df["Mes"] == mes_atual)
-    ]
-    faturamento = (
-        
-            df["Valor Venda","df_Atual"].sum()
+    ]["Valor Venda","df_Atual"].sum()
     )
 
     quantidade = (
