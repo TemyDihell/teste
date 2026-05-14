@@ -20,45 +20,88 @@ st.set_page_config(
 st.title("📊 Dashboard Comercial BI")
 
 # =========================================================
-# FUNÇÕES GOOGLE DRIVE
+# GOOGLE DRIVE / GOOGLE SHEETS
 # =========================================================
 
 def extrair_file_id(link):
 
     try:
 
-        if "/d/" in link:
-            return link.split("/d/")[1].split("/")[0]
+        # GOOGLE SHEETS
+        if "/spreadsheets/d/" in link:
 
+            return (
+                link
+                .split("/spreadsheets/d/")[1]
+                .split("/")[0]
+            )
+
+        # GOOGLE DRIVE
+        elif "/file/d/" in link:
+
+            return (
+                link
+                .split("/file/d/")[1]
+                .split("/")[0]
+            )
+
+        # FORMATO COM ID=
         elif "id=" in link:
-            return link.split("id=")[1].split("&")[0]
+
+            return (
+                link
+                .split("id=")[1]
+                .split("&")[0]
+            )
 
         return None
 
     except:
+
         return None
 
 
 @st.cache_data
-def carregar_excel_google_drive(link):
+def carregar_excel_google(link):
 
     file_id = extrair_file_id(link)
 
     if not file_id:
+
         raise Exception(
-            "Link do Google Drive inválido."
+            "Não foi possível identificar o ID da planilha."
         )
 
-    url = (
-        f"https://drive.google.com/"
-        f"uc?export=download&id={file_id}"
-    )
+    # =====================================================
+    # GOOGLE SHEETS EXPORT XLSX
+    # =====================================================
 
-    response = requests.get(url)
+    if "spreadsheets" in link:
+
+        export_url = (
+            "https://docs.google.com/"
+            f"spreadsheets/d/{file_id}/export"
+            "?format=xlsx"
+        )
+
+    # =====================================================
+    # GOOGLE DRIVE DOWNLOAD
+    # =====================================================
+
+    else:
+
+        export_url = (
+            "https://drive.google.com/"
+            f"uc?export=download&id={file_id}"
+        )
+
+    response = requests.get(export_url)
 
     if response.status_code != 200:
+
         raise Exception(
-            "Erro ao baixar arquivo do Google Drive."
+            f"Erro ao baixar arquivo "
+            f"(Status {response.status_code})"
         )
 
     try:
@@ -78,10 +121,10 @@ def carregar_excel_google_drive(link):
 # SIDEBAR
 # =========================================================
 
-st.sidebar.header("📂 Planilhas Google Drive")
+st.sidebar.header("📂 Planilhas Google")
 
 link_meta = st.sidebar.text_input(
-    "🔹 Link Planilha de Metas"
+    "🔹 Link Planilha Metas"
 )
 
 link_historico = st.sidebar.text_input(
@@ -104,22 +147,16 @@ if link_meta and link_historico and link_mes:
             "Carregando planilhas..."
         ):
 
-            df_meta = (
-                carregar_excel_google_drive(
-                    link_meta
-                )
+            df_meta = carregar_excel_google(
+                link_meta
             )
 
-            df_historico = (
-                carregar_excel_google_drive(
-                    link_historico
-                )
+            df_historico = carregar_excel_google(
+                link_historico
             )
 
-            df_mes = (
-                carregar_excel_google_drive(
-                    link_mes
-                )
+            df_mes = carregar_excel_google(
+                link_mes
             )
 
     except Exception as e:
@@ -290,17 +327,13 @@ if link_meta and link_historico and link_mes:
     )
 
     filtro = (
-
         df["Ano"].isin(filtro_ano) &
-
         df["Vendedor"].isin(
             filtro_vendedor
         ) &
-
         df["Equipe"].isin(
             filtro_equipe
         ) &
-
         df["Cidade"].isin(
             filtro_cidade
         )
@@ -508,7 +541,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # TOP 10 CLIENTES
+    # TOP/FLOP CLIENTES
     # =====================================================
 
     col1, col2 = st.columns(2)
@@ -627,7 +660,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # MIX PRODUTOS CLIENTE
+    # MIX PRODUTOS
     # =====================================================
 
     st.subheader(
@@ -695,7 +728,7 @@ if link_meta and link_historico and link_mes:
 
     batalha = batalha.map(
         lambda x:
-        "✅" if x > 0 else ""
+        "✅" if x > 0 else "❌"
     )
 
     st.dataframe(
@@ -737,6 +770,5 @@ if link_meta and link_historico and link_mes:
 else:
 
     st.info(
-        "Informe os 3 links "
-        "das planilhas do Google Drive."
+        "Informe os 3 links das planilhas Google."
     )
