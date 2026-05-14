@@ -350,8 +350,8 @@ if link_meta and link_historico and link_mes:
         (df["Mes"] == mes_atual)
     ]
     faturamento = (
-        df_Atual.groupby(
-            ["Valor Venda"].sum())
+        
+            df["Valor Venda","df_Atual"].sum()
     )
 
     quantidade = (
