@@ -365,10 +365,8 @@ if link_meta and link_historico and link_mes:
     )
 
     meta_total = (
-        df[
-        (df["Ano"] == ano_atual) &
-        (df["Mes"] == mes_atual)
-        ]["Meta"].sum()
+        df.groupby("Vendedor").agg({
+    "Meta": 'first' }).reset_index()
     )
 
     atingimento = (
