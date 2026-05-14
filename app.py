@@ -23,13 +23,13 @@ st.title("📊 Dashboard Comercial BI")
 
 def converter_link_drive(link):
 
-    if "drive.google.com" not in link:
+    if "docs.google.com" not in link:
         return None
 
     try:
         file_id = link.split("/d/")[1].split("/")[0]
 
-        return f"https://drive.google.com/uc?id={file_id}"
+        return f"https://docs.google.com/uc?id={file_id}"
 
     except:
         return None
