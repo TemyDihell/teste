@@ -354,15 +354,24 @@ if link_meta and link_historico and link_mes:
     )
 
     quantidade = (
-        df["Quantidade"].sum()
+        df[
+        (df["Ano"] == ano_atual) &
+        (df["Mes"] == mes_atual)
+        ]["Quantidade"].sum()
     )
 
     clientes = (
-        df["Cliente"].nunique()
+        df[
+        (df["Ano"] == ano_atual) &
+        (df["Mes"] == mes_atual)
+        ]["Cliente"].nunique()
     )
 
     meta_total = (
-        df["Meta"].sum()
+        df[
+        (df["Ano"] == ano_atual) &
+        (df["Mes"] == mes_atual)
+        ]["Meta"].sum()
     )
 
     atingimento = (
@@ -376,7 +385,10 @@ if link_meta and link_historico and link_mes:
     )
 
     mix_produtos = (
-        df["Produto"].nunique()
+        df[
+        (df["Ano"] == ano_atual) &
+        (df["Mes"] == mes_atual)
+        ]["Produto"].nunique()
     )
 
     c1, c2, c3, c4, c5, c6 = st.columns(6)
