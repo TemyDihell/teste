@@ -460,7 +460,11 @@ if link_meta and link_historico and link_mes:
     )
 
     meta_realizado = (
-        df.groupby("Mes_Atual")
+        df[
+        (df["Ano"] == ano_atual) &
+        (df["Mes"] == mes_atual)
+        ]
+        df.groupby("Mes")
         .agg({
             "Valor Venda": "sum",
             "Meta": "sum"
