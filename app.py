@@ -368,10 +368,8 @@ if link_meta and link_historico and link_mes:
     )
 
     meta_total = (
-        df.groupby('vendedor').agg({
-    'faturamento': 'sum',
-    'meta': 'first' # Pega apenas o primeiro valor da meta, sem somar as metas
-}).reset_index()
+        
+        df["Meta"].Sum()
     )
 
     atingimento = (
