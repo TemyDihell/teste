@@ -460,7 +460,7 @@ if link_meta and link_historico and link_mes:
     )
 
     meta_realizado = (
-        df.groupby("Mes")
+        df.groupby("Mes_Atual")
         .agg({
             "Valor Venda": "sum",
             "Meta": "sum"
@@ -470,7 +470,7 @@ if link_meta and link_historico and link_mes:
 
     fig_meta = px.bar(
         meta_realizado,
-        x="Mes",
+        x="Vendedor",
         y=["Valor Venda", "Meta"],
         barmode="group"
     )
