@@ -366,7 +366,7 @@ if link_meta and link_historico and link_mes:
 
     meta_total = (
         df["Vendedor"].unique()
-        ["Meta").Sum()
+        ["Meta"].Sum()
     )
 
     atingimento = (
