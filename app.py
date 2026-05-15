@@ -1,5 +1,5 @@
 # =========================================================
-# DASHBOARD COMERCIAL BI - COMPLETO
+# DASHBOARD COMERCIAL BI - VERSÃO ESTÁVEL
 # =========================================================
 
 import streamlit as st
@@ -12,7 +12,7 @@ import requests
 from io import BytesIO
 
 # =========================================================
-# CONFIG PAGE
+# CONFIG
 # =========================================================
 
 st.set_page_config(
@@ -24,8 +24,27 @@ st.set_page_config(
 st.title("📊 Dashboard Comercial BI")
 
 # =========================================================
-# GOOGLE SHEETS / DRIVE
+# FUNÇÕES
 # =========================================================
+
+def converter_brasil_numero(serie):
+
+    return pd.to_numeric(
+
+        serie.astype(str)
+
+        .str.replace("R$", "", regex=False)
+
+        .str.replace(".", "", regex=False)
+
+        .str.replace(",", ".", regex=False)
+
+        .str.strip(),
+
+        errors="coerce"
+
+    ).fillna(0)
+
 
 def extrair_file_id(link):
 
@@ -75,9 +94,9 @@ def carregar_excel_google(link):
 
     try:
 
-        # =============================================
+        # =================================================
         # GOOGLE SHEETS
-        # =============================================
+        # =================================================
 
         if "spreadsheets" in link:
 
@@ -89,9 +108,9 @@ def carregar_excel_google(link):
 
             return pd.read_csv(csv_url)
 
-        # =============================================
+        # =================================================
         # GOOGLE DRIVE XLSX
-        # =============================================
+        # =================================================
 
         else:
 
@@ -164,7 +183,7 @@ if link_meta and link_historico and link_mes:
         st.stop()
 
     # =====================================================
-    # CONCATENAR VENDAS
+    # CONCATENAR
     # =====================================================
 
     df_vendas = pd.concat(
@@ -200,6 +219,28 @@ if link_meta and link_historico and link_mes:
     df_vendas["Nome Mes"] = (
         df_vendas["Mes"]
         .apply(lambda x: calendar.month_abbr[x])
+    )
+
+    # =====================================================
+    # CONVERSÃO NUMÉRICA
+    # =====================================================
+
+    df_vendas["Valor Venda"] = (
+        converter_brasil_numero(
+            df_vendas["Valor Venda"]
+        )
+    )
+
+    df_vendas["Quantidade"] = (
+        converter_brasil_numero(
+            df_vendas["Quantidade"]
+        )
+    )
+
+    df_meta["Meta"] = (
+        converter_brasil_numero(
+            df_meta["Meta"]
+        )
     )
 
     ano_atual = datetime.now().year
@@ -278,7 +319,7 @@ if link_meta and link_historico and link_mes:
     df = df[filtro]
 
     # =====================================================
-    # DADOS MÊS ATUAL
+    # MÊS ATUAL
     # =====================================================
 
     df_mes_atual = df[
@@ -295,69 +336,84 @@ if link_meta and link_historico and link_mes:
     # KPIs
     # =====================================================
 
-    faturamento = (
+    faturamento = float(
         df_mes_atual["Valor Venda"]
         .sum()
     )
 
-    quantidade = (
+    quantidade = float(
         df_mes_atual["Quantidade"]
         .sum()
     )
 
-    clientes = (
+    clientes = int(
         df_mes_atual["Cliente"]
         .nunique()
     )
 
-    meta_total = (
+    meta_total = float(
+
         meta_mes_atual
         .drop_duplicates(
             subset=["Vendedor"]
         )["Meta"]
         .sum()
+
     )
 
-    atingimento = (
-        (faturamento / meta_total) * 100
-        if meta_total > 0 else 0
-    )
+    if meta_total > 0:
+
+        atingimento = (
+            faturamento / meta_total
+        ) * 100
+
+    else:
+
+        atingimento = 0
 
     ticket_medio = (
         faturamento / clientes
         if clientes > 0 else 0
     )
 
-    mix_produtos = (
+    mix_produtos = int(
         df_mes_atual["Produto"]
         .nunique()
     )
 
-    positivacao = (
-        clientes /
+    clientes_total = int(
         df["Cliente"].nunique()
-    ) * 100
+    )
+
+    positivacao = (
+        (clientes / clientes_total) * 100
+        if clientes_total > 0 else 0
+    )
+
+    faturamento_ano_passado = float(
+
+        df[
+            (df["Ano"] == ano_atual - 1) &
+            (df["Mes"] == mes_atual)
+        ]["Valor Venda"].sum()
+
+    )
 
     crescimento = (
         (
-            faturamento -
-            df[
-                (df["Ano"] == ano_atual - 1) &
-                (df["Mes"] == mes_atual)
-            ]["Valor Venda"].sum()
-        )
-        /
-        (
-            df[
-                (df["Ano"] == ano_atual - 1) &
-                (df["Mes"] == mes_atual)
-            ]["Valor Venda"].sum()
-            + 1
-        )
-    ) * 100
+            (
+                faturamento -
+                faturamento_ano_passado
+            )
+            /
+            faturamento_ano_passado
+        ) * 100
+        if faturamento_ano_passado > 0
+        else 0
+    )
 
     # =====================================================
-    # KPIS
+    # KPIs
     # =====================================================
 
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
@@ -430,6 +486,13 @@ if link_meta and link_historico and link_mes:
         on="Vendedor"
     ).fillna(0)
 
+    meta_realizado["%"] = (
+        meta_realizado["Valor Venda"]
+        /
+        meta_realizado["Meta"]
+        * 100
+    ).fillna(0)
+
     fig_meta = px.bar(
         meta_realizado,
         x="Vendedor",
@@ -444,19 +507,12 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # % ATINGIMENTO POR VENDEDOR
+    # % ATINGIMENTO
     # =====================================================
 
     st.subheader(
         "📈 % Atingimento por Vendedor"
     )
-
-    meta_realizado["%"] = (
-        meta_realizado["Valor Venda"]
-        /
-        meta_realizado["Meta"]
-        * 100
-    ).fillna(0)
 
     fig_pct = px.bar(
         meta_realizado,
@@ -475,7 +531,7 @@ if link_meta and link_historico and link_mes:
     # =====================================================
 
     st.subheader(
-        "📅 Evolução Diária do Mês"
+        "📅 Evolução Diária"
     )
 
     diario = (
@@ -503,7 +559,7 @@ if link_meta and link_historico and link_mes:
     # =====================================================
 
     st.subheader(
-        "📊 Comparativo Mensal"
+        "📊 Comparativo Anual"
     )
 
     comparativo = (
@@ -560,74 +616,6 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # TOP / FLOP
-    # =====================================================
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.subheader(
-            "🔥 TOP 10 Clientes"
-        )
-
-        top = (
-            df_mes_atual
-            .groupby("Cliente")
-            ["Valor Venda"]
-            .sum()
-            .reset_index()
-            .sort_values(
-                by="Valor Venda",
-                ascending=False
-            )
-            .head(10)
-        )
-
-        fig_top = px.bar(
-            top,
-            x="Cliente",
-            y="Valor Venda",
-            text_auto=True
-        )
-
-        st.plotly_chart(
-            fig_top,
-            use_container_width=True
-        )
-
-    with col2:
-
-        st.subheader(
-            "❄️ FLOP 10 Clientes"
-        )
-
-        flop = (
-            df_mes_atual
-            .groupby("Cliente")
-            ["Valor Venda"]
-            .sum()
-            .reset_index()
-            .sort_values(
-                by="Valor Venda",
-                ascending=True
-            )
-            .head(10)
-        )
-
-        fig_flop = px.bar(
-            flop,
-            x="Cliente",
-            y="Valor Venda",
-            text_auto=True
-        )
-
-        st.plotly_chart(
-            fig_flop,
-            use_container_width=True
-        )
-
-    # =====================================================
     # CURVA ABC
     # =====================================================
 
@@ -668,11 +656,11 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # FABRICANTE
+    # FABRICANTES
     # =====================================================
 
     st.subheader(
-        "🏭 Mix Fabricante"
+        "🏭 Mix Fabricantes"
     )
 
     fabricante = (
