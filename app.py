@@ -1,5 +1,5 @@
 # =========================================================
-# DASHBOARD COMERCIAL BI - VERSÃO ESTÁVEL
+# DASHBOARD COMERCIAL BI - VERSÃO FINAL ESTÁVEL
 # =========================================================
 
 import streamlit as st
@@ -133,7 +133,7 @@ def carregar_excel_google(link):
         )
 
 # =========================================================
-# SIDEBAR
+# SIDEBAR LINKS
 # =========================================================
 
 st.sidebar.header("📂 Planilhas Google")
@@ -183,7 +183,7 @@ if link_meta and link_historico and link_mes:
         st.stop()
 
     # =====================================================
-    # CONCATENAR
+    # CONCATENAR VENDAS
     # =====================================================
 
     df_vendas = pd.concat(
@@ -222,7 +222,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # CONVERSÃO NUMÉRICA
+    # CONVERSÕES
     # =====================================================
 
     df_vendas["Valor Venda"] = (
@@ -271,65 +271,215 @@ if link_meta and link_historico and link_mes:
     vendedores = sorted(
         df["Vendedor"]
         .dropna()
+        .astype(str)
         .unique()
     )
 
     equipes = sorted(
         df["Equipe"]
         .dropna()
+        .astype(str)
         .unique()
     )
 
     cidades = sorted(
         df["Cidade"]
         .dropna()
+        .astype(str)
         .unique()
     )
 
+    fabricantes = sorted(
+        df["Fabricante"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    produtos = sorted(
+        df["Produto"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    clientes_lista = sorted(
+        df["Cliente"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    meses = sorted(
+        df["Mes"]
+        .dropna()
+        .unique()
+    )
+
+    # =====================================================
+    # SIDEBAR FILTROS
+    # =====================================================
+
     filtro_vendedor = st.sidebar.multiselect(
-        "Vendedor",
+        "👤 Vendedor",
         vendedores,
         default=vendedores
     )
 
     filtro_equipe = st.sidebar.multiselect(
-        "Equipe",
+        "👥 Equipe",
         equipes,
         default=equipes
     )
 
     filtro_cidade = st.sidebar.multiselect(
-        "Cidade",
+        "🏙️ Cidade",
         cidades,
         default=cidades
     )
 
-    filtro = (
+    filtro_fabricante = st.sidebar.multiselect(
+        "🏭 Fabricante",
+        fabricantes,
+        default=fabricantes
+    )
+
+    filtro_produto = st.sidebar.multiselect(
+        "📦 Produto",
+        produtos,
+        default=produtos
+    )
+
+    filtro_cliente = st.sidebar.multiselect(
+        "🛒 Cliente",
+        clientes_lista,
+        default=clientes_lista
+    )
+
+    filtro_mes = st.sidebar.multiselect(
+        "📅 Mês",
+        meses,
+        default=meses
+    )
+
+    # =====================================================
+    # FILTRO PRINCIPAL
+    # =====================================================
+
+    filtro_df = (
+
         df["Vendedor"].isin(
             filtro_vendedor
-        ) &
+        )
+
+        &
+
         df["Equipe"].isin(
             filtro_equipe
-        ) &
+        )
+
+        &
+
         df["Cidade"].isin(
             filtro_cidade
         )
+
+        &
+
+        df["Fabricante"].isin(
+            filtro_fabricante
+        )
+
+        &
+
+        df["Produto"].isin(
+            filtro_produto
+        )
+
+        &
+
+        df["Cliente"].isin(
+            filtro_cliente
+        )
+
+        &
+
+        df["Mes"].isin(
+            filtro_mes
+        )
+
     )
 
-    df = df[filtro]
+    df = df[filtro_df]
+
+    # =====================================================
+    # FILTRO META
+    # =====================================================
+
+    filtro_meta = (
+
+        df_meta["Vendedor"]
+        .astype(str)
+        .isin(filtro_vendedor)
+
+    )
+
+    df_meta = df_meta[
+        filtro_meta
+    ]
 
     # =====================================================
     # MÊS ATUAL
     # =====================================================
 
     df_mes_atual = df[
-        (df["Ano"] == ano_atual) &
+
+        (df["Ano"] == ano_atual)
+
+        &
+
         (df["Mes"] == mes_atual)
+
     ]
 
+    # =====================================================
+    # META MÊS ATUAL
+    # =====================================================
+
     meta_mes_atual = df_meta[
-        (df_meta["Ano"] == ano_atual) &
+
+        (df_meta["Ano"] == ano_atual)
+
+        &
+
         (df_meta["Mes"] == mes_atual)
+
+    ]
+
+    # =====================================================
+    # SINCRONIZAR META COM FILTROS
+    # =====================================================
+
+    vendedores_filtrados = (
+
+        df_mes_atual["Vendedor"]
+
+        .dropna()
+
+        .astype(str)
+
+        .unique()
+
+    )
+
+    meta_mes_atual = meta_mes_atual[
+
+        meta_mes_atual["Vendedor"]
+
+        .astype(str)
+
+        .isin(vendedores_filtrados)
+
     ]
 
     # =====================================================
@@ -351,28 +501,17 @@ if link_meta and link_historico and link_mes:
         .nunique()
     )
 
-    vendedores_filtrados = (
-    df_mes_atual["Vendedor"]
-    .dropna()
-    .unique()
-)
+    meta_total = float(
 
-meta_total = float(
+        meta_mes_atual
 
-    meta_mes_atual[
+        .drop_duplicates(
+            subset=["Vendedor"]
+        )["Meta"]
 
-        meta_mes_atual["Vendedor"]
-        .isin(vendedores_filtrados)
+        .sum()
 
-    ]
-
-    .drop_duplicates(
-        subset=["Vendedor"]
-    )["Meta"]
-
-    .sum()
-
-)
+    )
 
     if meta_total > 0:
 
@@ -385,8 +524,13 @@ meta_total = float(
         atingimento = 0
 
     ticket_medio = (
+
         faturamento / clientes
-        if clientes > 0 else 0
+
+        if clientes > 0
+
+        else 0
+
     )
 
     mix_produtos = int(
@@ -394,42 +538,11 @@ meta_total = float(
         .nunique()
     )
 
-    clientes_total = int(
-        df["Cliente"].nunique()
-    )
-
-    positivacao = (
-        (clientes / clientes_total) * 100
-        if clientes_total > 0 else 0
-    )
-
-    faturamento_ano_passado = float(
-
-        df[
-            (df["Ano"] == ano_atual - 1) &
-            (df["Mes"] == mes_atual)
-        ]["Valor Venda"].sum()
-
-    )
-
-    crescimento = (
-        (
-            (
-                faturamento -
-                faturamento_ano_passado
-            )
-            /
-            faturamento_ano_passado
-        ) * 100
-        if faturamento_ano_passado > 0
-        else 0
-    )
-
     # =====================================================
-    # KPIs
+    # KPIs VISUAIS
     # =====================================================
 
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.metric(
         "💰 Faturamento",
@@ -452,18 +565,8 @@ meta_total = float(
     )
 
     c5.metric(
-        "💳 Ticket Médio",
-        f"R$ {ticket_medio:,.2f}"
-    )
-
-    c6.metric(
         "📦 Mix Produtos",
         mix_produtos
-    )
-
-    c7.metric(
-        "📊 Crescimento",
-        f"{crescimento:.1f}%"
     )
 
     st.divider()
@@ -499,13 +602,6 @@ meta_total = float(
         on="Vendedor"
     ).fillna(0)
 
-    meta_realizado["%"] = (
-        meta_realizado["Valor Venda"]
-        /
-        meta_realizado["Meta"]
-        * 100
-    ).fillna(0)
-
     fig_meta = px.bar(
         meta_realizado,
         x="Vendedor",
@@ -516,83 +612,6 @@ meta_total = float(
 
     st.plotly_chart(
         fig_meta,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # % ATINGIMENTO
-    # =====================================================
-
-    st.subheader(
-        "📈 % Atingimento por Vendedor"
-    )
-
-    fig_pct = px.bar(
-        meta_realizado,
-        x="Vendedor",
-        y="%",
-        text_auto=".1f"
-    )
-
-    st.plotly_chart(
-        fig_pct,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # EVOLUÇÃO DIÁRIA
-    # =====================================================
-
-    st.subheader(
-        "📅 Evolução Diária"
-    )
-
-    diario = (
-        df_mes_atual
-        .groupby("Dia")
-        ["Valor Venda"]
-        .sum()
-        .reset_index()
-    )
-
-    fig_diario = px.line(
-        diario,
-        x="Dia",
-        y="Valor Venda",
-        markers=True
-    )
-
-    st.plotly_chart(
-        fig_diario,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # COMPARATIVO ANUAL
-    # =====================================================
-
-    st.subheader(
-        "📊 Comparativo Anual"
-    )
-
-    comparativo = (
-        df.groupby(
-            ["Ano", "Mes"]
-        )["Valor Venda"]
-        .sum()
-        .reset_index()
-    )
-
-    fig_comp = px.line(
-        comparativo,
-        x="Mes",
-        y="Valor Venda",
-        color="Ano",
-        markers=True
-    )
-
-    st.plotly_chart(
-        fig_comp,
         use_container_width=True
     )
 
@@ -629,51 +648,11 @@ meta_total = float(
     )
 
     # =====================================================
-    # CURVA ABC
+    # BATALHA NAVAL
     # =====================================================
 
     st.subheader(
-        "📦 Curva ABC Clientes"
-    )
-
-    abc = (
-        df_mes_atual
-        .groupby("Cliente")
-        ["Valor Venda"]
-        .sum()
-        .reset_index()
-        .sort_values(
-            by="Valor Venda",
-            ascending=False
-        )
-    )
-
-    abc["Acumulado"] = (
-        abc["Valor Venda"]
-        .cumsum()
-        /
-        abc["Valor Venda"].sum()
-        * 100
-    )
-
-    fig_abc = px.line(
-        abc,
-        x="Cliente",
-        y="Acumulado",
-        markers=True
-    )
-
-    st.plotly_chart(
-        fig_abc,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # FABRICANTES
-    # =====================================================
-
-    st.subheader(
-        "🏭 Mix Fabricantes"
+        "📌 Batalha Naval"
     )
 
     fabricante = (
@@ -682,25 +661,6 @@ meta_total = float(
         ["Valor Venda"]
         .sum()
         .reset_index()
-    )
-
-    fig_fab = px.pie(
-        fabricante,
-        names="Fabricante",
-        values="Valor Venda"
-    )
-
-    st.plotly_chart(
-        fig_fab,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # BATALHA NAVAL
-    # =====================================================
-
-    st.subheader(
-        "📌 Batalha Naval"
     )
 
     top_fabricantes = (
