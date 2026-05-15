@@ -262,107 +262,61 @@ if link_meta and link_historico and link_mes:
         .fillna(0)
     )
 
-# =====================================================
-# FILTROS
-# =====================================================
+    # =====================================================
+    # FILTROS
+    # =====================================================
 
-st.sidebar.header("🎯 Filtros")
+    st.sidebar.header("🎯 Filtros")
 
-vendedores = sorted(
-    df["Vendedor"]
-    .dropna()
-    .unique()
-)
-
-equipes = sorted(
-    df["Equipe"]
-    .dropna()
-    .unique()
-)
-
-cidades = sorted(
-    df["Cidade"]
-    .dropna()
-    .unique()
-)
-
-# -----------------------------------------------------
-# FILTROS SIDEBAR
-# -----------------------------------------------------
-
-filtro_vendedor = st.sidebar.multiselect(
-    "Vendedor",
-    vendedores,
-    default=vendedores
-)
-
-filtro_equipe = st.sidebar.multiselect(
-    "Equipe",
-    equipes,
-    default=equipes
-)
-
-filtro_cidade = st.sidebar.multiselect(
-    "Cidade",
-    cidades,
-    default=cidades
-)
-
-# =====================================================
-# FILTRO VENDAS
-# =====================================================
-
-filtro_df = (
-
-    df["Vendedor"].isin(
-        filtro_vendedor
+    vendedores = sorted(
+        df["Vendedor"]
+        .dropna()
+        .unique()
     )
 
-    &
-
-    df["Equipe"].isin(
-        filtro_equipe
+    equipes = sorted(
+        df["Equipe"]
+        .dropna()
+        .unique()
     )
 
-    &
-
-    df["Cidade"].isin(
-        filtro_cidade
+    cidades = sorted(
+        df["Cidade"]
+        .dropna()
+        .unique()
     )
 
-)
-
-df = df[filtro_df]
-
-# =====================================================
-# FILTRO METAS
-# =====================================================
-
-filtro_meta = (
-
-    df_meta["Vendedor"].isin(
-        filtro_vendedor
+    filtro_vendedor = st.sidebar.multiselect(
+        "Vendedor",
+        vendedores,
+        default=vendedores
     )
 
-)
+    filtro_equipe = st.sidebar.multiselect(
+        "Equipe",
+        equipes,
+        default=equipes
+    )
 
-df_meta = df_meta[filtro_meta]
+    filtro_cidade = st.sidebar.multiselect(
+        "Cidade",
+        cidades,
+        default=cidades
+    )
 
-# =====================================================
-# MÊS ATUAL FILTRADO
-# =====================================================
+    filtro = (
+        df["Vendedor"].isin(
+            filtro_vendedor
+        ) &
+        df["Equipe"].isin(
+            filtro_equipe
+        ) &
+        df["Cidade"].isin(
+            filtro_cidade
+        )
+    )
 
-df_mes_atual = df[
-    (df["Ano"] == ano_atual)
-    &
-    (df["Mes"] == mes_atual)
-]
-
-meta_mes_atual = df_meta[
-    (df_meta["Ano"] == ano_atual)
-    &
-    (df_meta["Mes"] == mes_atual)
-]
+    df = df[filtro]
 
     # =====================================================
     # MÊS ATUAL
@@ -758,7 +712,7 @@ meta_mes_atual = df_meta[
 
     batalha = batalha.map(
         lambda x:
-        "✅" if x > 0 else "❌"
+        "✅" if x > 0 else ""
     )
 
     st.dataframe(
