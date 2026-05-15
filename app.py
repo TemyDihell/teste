@@ -351,15 +351,28 @@ if link_meta and link_historico and link_mes:
         .nunique()
     )
 
-    meta_total = float(
+    vendedores_filtrados = (
+    df_mes_atual["Vendedor"]
+    .dropna()
+    .unique()
+)
 
-        meta_mes_atual
-        .drop_duplicates(
-            subset=["Vendedor"]
-        )["Meta"]
-        .sum()
+meta_total = float(
 
-    )
+    meta_mes_atual[
+
+        meta_mes_atual["Vendedor"]
+        .isin(vendedores_filtrados)
+
+    ]
+
+    .drop_duplicates(
+        subset=["Vendedor"]
+    )["Meta"]
+
+    .sum()
+
+)
 
     if meta_total > 0:
 
