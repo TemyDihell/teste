@@ -200,6 +200,25 @@ if link_meta and link_historico and link_mes:
         st.stop()
 
     # =====================================================
+    # LIMPAR NOMES COLUNAS
+    # =====================================================
+
+    df_meta.columns = (
+        df_meta.columns
+        .str.strip()
+    )
+
+    df_historico.columns = (
+        df_historico.columns
+        .str.strip()
+    )
+
+    df_mes.columns = (
+        df_mes.columns
+        .str.strip()
+    )
+
+    # =====================================================
     # CONCATENAR VENDAS
     # =====================================================
 
@@ -431,25 +450,33 @@ if link_meta and link_historico and link_mes:
     ]
 
     # =====================================================
-    # FILTRO META
+    # VENDEDORES FILTRADOS
     # =====================================================
 
-    filtro_meta = (
+    vendedores_filtrados = (
 
-        df_meta["Vendedor"]
+        df_filtrado["Vendedor"]
+
+        .dropna()
+
         .astype(str)
-        .isin(filtro_vendedor)
 
-        &
-
-        df_meta["Equipe"]
-        .astype(str)
-        .isin(filtro_equipe)
+        .unique()
 
     )
 
+    # =====================================================
+    # FILTRO META
+    # =====================================================
+
     df_meta_filtrado = df_meta[
-        filtro_meta
+
+        df_meta["Vendedor"]
+
+        .astype(str)
+
+        .isin(vendedores_filtrados)
+
     ]
 
     # =====================================================
@@ -516,16 +543,6 @@ if link_meta and link_historico and link_mes:
         (faturamento / meta_total) * 100
 
         if meta_total > 0
-
-        else 0
-
-    )
-
-    ticket_medio = (
-
-        faturamento / clientes
-
-        if clientes > 0
 
         else 0
 
@@ -806,7 +823,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # EXPORTAÇÃO
+    # EXPORTAÇÃO CSV
     # =====================================================
 
     @st.cache_data
