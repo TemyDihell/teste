@@ -446,17 +446,6 @@ if link_meta and link_historico and link_mes:
         .astype(str)
         .isin(filtro_equipe)
 
-        &
-
-        df_meta["Cidade"]
-        .astype(str)
-        .isin(filtro_cidade)
-
-        &
-
-        df_meta["Mes"]
-        .isin(filtro_mes)
-
     )
 
     df_meta_filtrado = df_meta[
