@@ -260,29 +260,54 @@ if link_meta and link_historico and link_mes:
         )
 
     # =====================================================
-    # TRATAMENTO DATA
+    # TRATAMENTO DATA (NOVO MODELO SEM CAMPO DATA)
     # =====================================================
 
-    df_vendas["Data"] = pd.to_datetime(
-        df_vendas["Data"],
+    # AGORA O SISTEMA UTILIZA DIRETAMENTE:
+    # ✅ Ano
+    # ✅ Mes
+    #
+    # NÃO PRECISA MAIS DA COLUNA "Data"
+
+    # =====================================================
+    # GARANTIR NUMÉRICOS
+    # =====================================================
+
+    df_vendas["Ano"] = pd.to_numeric(
+        df_vendas["Ano"],
         errors="coerce"
     )
 
-    df_vendas = df_vendas.dropna(
-        subset=["Data"]
+    df_vendas["Mes"] = pd.to_numeric(
+        df_vendas["Mes"],
+        errors="coerce"
     )
 
+    # =====================================================
+    # REMOVER LINHAS INVÁLIDAS
+    # =====================================================
+
+    df_vendas = df_vendas.dropna(
+        subset=["Ano", "Mes"]
+    )
+
+    # =====================================================
+    # CONVERTER PARA INT
+    # =====================================================
+
     df_vendas["Ano"] = (
-        df_vendas["Data"].dt.year
+        df_vendas["Ano"]
+        .astype(int)
     )
 
     df_vendas["Mes"] = (
-        df_vendas["Data"].dt.month
+        df_vendas["Mes"]
+        .astype(int)
     )
 
-    df_vendas["Dia"] = (
-        df_vendas["Data"].dt.day
-    )
+    # =====================================================
+    # NOME DOS MESES
+    # =====================================================
 
     meses_br = {
         1: "Jan",
@@ -303,6 +328,14 @@ if link_meta and link_historico and link_mes:
         df_vendas["Mes"]
         .map(meses_br)
     )
+
+    # =====================================================
+    # ANO E MÊS ATUAL
+    # =====================================================
+
+    ano_atual = datetime.now().year
+    mes_atual = datetime.now().month
+
 
     # =====================================================
     # CONVERSÕES
