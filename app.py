@@ -422,6 +422,13 @@ if link_meta and link_historico and link_mes:
         .astype(str)
         .isin(filtro_vendedor)
 
+        &
+
+        df_meta["Equipe"]
+    .astype(str)
+    .isin(filtro_equipe)
+        
+
     )
 
     df_meta = df_meta[
