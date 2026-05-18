@@ -398,100 +398,142 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # FILTRO PRINCIPAL
-    # =====================================================
+# FILTRO PRINCIPAL
+# =====================================================
 
-    filtro_df = (
+filtro_df = (
 
-        df_vendas["Vendedor"].isin(
-            filtro_vendedor
-        )
-
-        &
-
-        df_vendas["Equipe"].isin(
-            filtro_equipe
-        )
-
-        &
-
-        df_vendas["Cidade"].isin(
-            filtro_cidade
-        )
-
-        &
-
-        df_vendas["Fabricante"].isin(
-            filtro_fabricante
-        )
-
-        &
-
-        df_vendas["Produto"].isin(
-            filtro_produto
-        )
-
-        &
-
-        df_vendas["Cliente"].isin(
-            filtro_cliente
-        )
-
-        &
-
-        df_vendas["Mes"].isin(
-            filtro_mes
-        )
-
+    df_vendas["Vendedor"].isin(
+        filtro_vendedor
     )
 
-    df_filtrado = df_vendas[
-        filtro_df
-    ]
+    &
 
-    # =====================================================
-    # VENDEDORES FILTRADOS
-    # =====================================================
-
-    vendedores_filtrados = (
-
-        df_filtrado["Vendedor"]
-
-        .dropna()
-
-        .astype(str)
-
-        .unique()
-
+    df_vendas["Equipe"].isin(
+        filtro_equipe
     )
 
-    # =====================================================
-    # FILTRO META
-    # =====================================================
+    &
 
-    df_meta_filtrado = df_meta[
+    df_vendas["Cidade"].isin(
+        filtro_cidade
+    )
 
-        df_meta["Vendedor"]
+    &
 
-        .astype(str)
+    df_vendas["Fabricante"].isin(
+        filtro_fabricante
+    )
 
-        .isin(vendedores_filtrados)
+    &
 
-    ]
+    df_vendas["Produto"].isin(
+        filtro_produto
+    )
 
-    # =====================================================
-    # MÊS ATUAL
-    # =====================================================
+    &
 
-    df_mes_atual = df_filtrado[
+    df_vendas["Cliente"].isin(
+        filtro_cliente
+    )
 
-        (df_filtrado["Ano"] == ano_atual)
+    &
 
-        &
+    df_vendas["Mes"].isin(
+        filtro_mes
+    )
 
-        (df_filtrado["Mes"] == mes_atual)
+)
 
-    ]
+df_filtrado = df_vendas[
+    filtro_df
+]
+
+# =====================================================
+# NORMALIZAR VENDEDORES
+# =====================================================
+
+df_vendas["Vendedor"] = (
+    df_vendas["Vendedor"]
+    .astype(str)
+    .str.upper()
+    .str.strip()
+)
+
+df_meta["Vendedor"] = (
+    df_meta["Vendedor"]
+    .astype(str)
+    .str.upper()
+    .str.strip()
+)
+
+# =====================================================
+# FILTRO METAS
+# =====================================================
+
+# A META VAI RESPEITAR APENAS:
+# ✅ VENDEDOR
+# ✅ EQUIPE
+#
+# E IGNORAR:
+# ❌ PRODUTO
+# ❌ FABRICANTE
+# ❌ CLIENTE
+# ❌ CIDADE
+
+df_base_meta = df_vendas[
+
+    df_vendas["Vendedor"].isin(
+        [v.upper().strip() for v in filtro_vendedor]
+    )
+
+    &
+
+    df_vendas["Equipe"].isin(
+        filtro_equipe
+    )
+
+]
+
+# =====================================================
+# VENDEDORES DAS EQUIPES FILTRADAS
+# =====================================================
+
+vendedores_meta = (
+
+    df_base_meta["Vendedor"]
+
+    .dropna()
+
+    .unique()
+
+)
+
+# =====================================================
+# META FILTRADA
+# =====================================================
+
+df_meta_filtrado = df_meta[
+
+    df_meta["Vendedor"]
+
+    .isin(vendedores_meta)
+
+]
+
+# =====================================================
+# META MÊS ATUAL
+# =====================================================
+
+meta_mes_atual = df_meta_filtrado[
+
+    (df_meta_filtrado["Ano"] == ano_atual)
+
+    &
+
+    (df_meta_filtrado["Mes"] == mes_atual)
+
+]
 
     # =====================================================
     # META MÊS ATUAL
@@ -526,15 +568,15 @@ if link_meta and link_historico and link_mes:
         .nunique()
     )
 
-    meta_total = (
+    meta_total = float(
 
-        meta_mes_atual
+    meta_mes_atual
 
-        .groupby("Vendedor")["Meta"]
+    .groupby("Vendedor")["Meta"]
 
-        .max()
+    .max()
 
-        .sum()
+    .sum()
 
     )
 
