@@ -482,12 +482,6 @@ if link_meta and link_historico and link_mes:
     # META RESPEITA SOMENTE:
     # ✅ VENDEDOR
     # ✅ EQUIPE
-    #
-    # IGNORA:
-    # ❌ PRODUTO
-    # ❌ FABRICANTE
-    # ❌ CLIENTE
-    # ❌ CIDADE
 
     df_base_meta = df_vendas[
 
@@ -550,7 +544,7 @@ if link_meta and link_historico and link_mes:
     ]
 
     # =====================================================
-    # KPIs
+    # KPIs PRINCIPAIS
     # =====================================================
 
     faturamento = float(
@@ -596,6 +590,121 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
+    # KPI DIAS ÚTEIS / TENDÊNCIA / OBJETIVO DIA
+    # =====================================================
+
+    hoje = datetime.now()
+
+    primeiro_dia_mes = datetime(
+        ano_atual,
+        mes_atual,
+        1
+    )
+
+    if mes_atual == 12:
+
+        ultimo_dia_mes = datetime(
+            ano_atual + 1,
+            1,
+            1
+        ) - pd.Timedelta(days=1)
+
+    else:
+
+        ultimo_dia_mes = datetime(
+            ano_atual,
+            mes_atual + 1,
+            1
+        ) - pd.Timedelta(days=1)
+
+    # =====================================================
+    # DIAS ÚTEIS
+    # =====================================================
+
+    dias_uteis_mes = pd.bdate_range(
+        start=primeiro_dia_mes,
+        end=ultimo_dia_mes
+    )
+
+    total_dias_uteis = len(
+        dias_uteis_mes
+    )
+
+    dias_uteis_decorridos = pd.bdate_range(
+        start=primeiro_dia_mes,
+        end=hoje
+    )
+
+    dias_decorridos = len(
+        dias_uteis_decorridos
+    )
+
+    dias_restantes = (
+        total_dias_uteis
+        - dias_decorridos
+    )
+
+    if dias_restantes < 0:
+
+        dias_restantes = 0
+
+    # =====================================================
+    # MÉDIA DIÁRIA
+    # =====================================================
+
+    media_diaria = (
+
+        faturamento / dias_decorridos
+
+        if dias_decorridos > 0
+
+        else 0
+
+    )
+
+    # =====================================================
+    # TENDÊNCIA
+    # =====================================================
+
+    tendencia_final = (
+        media_diaria
+        * total_dias_uteis
+    )
+
+    percentual_tendencia = (
+
+        (tendencia_final / meta_total) * 100
+
+        if meta_total > 0
+
+        else 0
+
+    )
+
+    # =====================================================
+    # OBJETIVO DIA
+    # =====================================================
+
+    falta_meta = (
+        meta_total
+        - faturamento
+    )
+
+    if falta_meta < 0:
+
+        falta_meta = 0
+
+    objetivo_dia = (
+
+        falta_meta / dias_restantes
+
+        if dias_restantes > 0
+
+        else 0
+
+    )
+
+    # =====================================================
     # KPIs VISUAIS
     # =====================================================
 
@@ -627,6 +736,37 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
+    # KPIs AVANÇADOS
+    # =====================================================
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+
+    k1.metric(
+        "📅 Dias Úteis",
+        total_dias_uteis
+    )
+
+    k2.metric(
+        "⏳ Dias Decorridos",
+        dias_decorridos
+    )
+
+    k3.metric(
+        "📌 Dias Restantes",
+        dias_restantes
+    )
+
+    k4.metric(
+        "📈 Tendência",
+        moeda_br(tendencia_final)
+    )
+
+    k5.metric(
+        "🎯 Objetivo Dia",
+        moeda_br(objetivo_dia)
+    )
+
+    # =====================================================
     # STATUS META
     # =====================================================
 
@@ -646,6 +786,31 @@ if link_meta and link_historico and link_mes:
 
         st.error(
             "❌ Abaixo da Meta"
+        )
+
+    # =====================================================
+    # STATUS TENDÊNCIA
+    # =====================================================
+
+    if percentual_tendencia >= 100:
+
+        st.success(
+            f"🚀 Tendência de fechamento em "
+            f"{percentual_tendencia:.1f}% da meta"
+        )
+
+    elif percentual_tendencia >= 90:
+
+        st.warning(
+            f"⚠️ Tendência de fechamento em "
+            f"{percentual_tendencia:.1f}% da meta"
+        )
+
+    else:
+
+        st.error(
+            f"❌ Tendência de fechamento em "
+            f"{percentual_tendencia:.1f}% da meta"
         )
 
     st.divider()
