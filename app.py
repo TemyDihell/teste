@@ -148,7 +148,6 @@ def carregar_excel_google(link):
             f"Erro ao carregar planilha: {e}"
         )
 
-
 # =========================================================
 # SIDEBAR LINKS
 # =========================================================
@@ -200,7 +199,7 @@ if link_meta and link_historico and link_mes:
         st.stop()
 
     # =====================================================
-    # LIMPAR NOMES COLUNAS
+    # LIMPAR COLUNAS
     # =====================================================
 
     df_meta.columns = (
@@ -228,7 +227,40 @@ if link_meta and link_historico and link_mes:
     ).drop_duplicates()
 
     # =====================================================
-    # TRATAMENTO
+    # NORMALIZAR TEXTO
+    # =====================================================
+
+    colunas_texto = [
+        "Vendedor",
+        "Equipe",
+        "Cidade",
+        "Fabricante",
+        "Produto",
+        "Cliente"
+    ]
+
+    for coluna in colunas_texto:
+
+        if coluna in df_vendas.columns:
+
+            df_vendas[coluna] = (
+                df_vendas[coluna]
+                .astype(str)
+                .str.upper()
+                .str.strip()
+            )
+
+    if "Vendedor" in df_meta.columns:
+
+        df_meta["Vendedor"] = (
+            df_meta["Vendedor"]
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+    # =====================================================
+    # TRATAMENTO DATA
     # =====================================================
 
     df_vendas["Data"] = pd.to_datetime(
@@ -306,42 +338,36 @@ if link_meta and link_historico and link_mes:
     vendedores = sorted(
         df_vendas["Vendedor"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
     equipes = sorted(
         df_vendas["Equipe"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
     cidades = sorted(
         df_vendas["Cidade"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
     fabricantes = sorted(
         df_vendas["Fabricante"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
     produtos = sorted(
         df_vendas["Produto"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
     clientes_lista = sorted(
         df_vendas["Cliente"]
         .dropna()
-        .astype(str)
         .unique()
     )
 
@@ -352,7 +378,7 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # SIDEBAR FILTROS
+    # SIDEBAR
     # =====================================================
 
     filtro_vendedor = st.sidebar.multiselect(
@@ -398,142 +424,116 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-# FILTRO PRINCIPAL
-# =====================================================
+    # FILTRO PRINCIPAL
+    # =====================================================
 
-filtro_df = (
+    filtro_df = (
 
-    df_vendas["Vendedor"].isin(
-        filtro_vendedor
+        df_vendas["Vendedor"].isin(
+            filtro_vendedor
+        )
+
+        &
+
+        df_vendas["Equipe"].isin(
+            filtro_equipe
+        )
+
+        &
+
+        df_vendas["Cidade"].isin(
+            filtro_cidade
+        )
+
+        &
+
+        df_vendas["Fabricante"].isin(
+            filtro_fabricante
+        )
+
+        &
+
+        df_vendas["Produto"].isin(
+            filtro_produto
+        )
+
+        &
+
+        df_vendas["Cliente"].isin(
+            filtro_cliente
+        )
+
+        &
+
+        df_vendas["Mes"].isin(
+            filtro_mes
+        )
+
     )
 
-    &
+    df_filtrado = df_vendas[
+        filtro_df
+    ]
 
-    df_vendas["Equipe"].isin(
-        filtro_equipe
+    # =====================================================
+    # FILTRO META
+    # =====================================================
+
+    # META RESPEITA SOMENTE:
+    # ✅ VENDEDOR
+    # ✅ EQUIPE
+    #
+    # IGNORA:
+    # ❌ PRODUTO
+    # ❌ FABRICANTE
+    # ❌ CLIENTE
+    # ❌ CIDADE
+
+    df_base_meta = df_vendas[
+
+        df_vendas["Vendedor"].isin(
+            filtro_vendedor
+        )
+
+        &
+
+        df_vendas["Equipe"].isin(
+            filtro_equipe
+        )
+
+    ]
+
+    vendedores_meta = (
+
+        df_base_meta["Vendedor"]
+
+        .dropna()
+
+        .unique()
+
     )
 
-    &
+    df_meta_filtrado = df_meta[
 
-    df_vendas["Cidade"].isin(
-        filtro_cidade
-    )
+        df_meta["Vendedor"]
 
-    &
+        .isin(vendedores_meta)
 
-    df_vendas["Fabricante"].isin(
-        filtro_fabricante
-    )
+    ]
 
-    &
+    # =====================================================
+    # MÊS ATUAL
+    # =====================================================
 
-    df_vendas["Produto"].isin(
-        filtro_produto
-    )
+    df_mes_atual = df_filtrado[
 
-    &
+        (df_filtrado["Ano"] == ano_atual)
 
-    df_vendas["Cliente"].isin(
-        filtro_cliente
-    )
+        &
 
-    &
+        (df_filtrado["Mes"] == mes_atual)
 
-    df_vendas["Mes"].isin(
-        filtro_mes
-    )
-
-)
-
-df_filtrado = df_vendas[
-    filtro_df
-]
-
-# =====================================================
-# NORMALIZAR VENDEDORES
-# =====================================================
-
-df_vendas["Vendedor"] = (
-    df_vendas["Vendedor"]
-    .astype(str)
-    .str.upper()
-    .str.strip()
-)
-
-df_meta["Vendedor"] = (
-    df_meta["Vendedor"]
-    .astype(str)
-    .str.upper()
-    .str.strip()
-)
-
-# =====================================================
-# FILTRO METAS
-# =====================================================
-
-# A META VAI RESPEITAR APENAS:
-# ✅ VENDEDOR
-# ✅ EQUIPE
-#
-# E IGNORAR:
-# ❌ PRODUTO
-# ❌ FABRICANTE
-# ❌ CLIENTE
-# ❌ CIDADE
-
-df_base_meta = df_vendas[
-
-    df_vendas["Vendedor"].isin(
-        [v.upper().strip() for v in filtro_vendedor]
-    )
-
-    &
-
-    df_vendas["Equipe"].isin(
-        filtro_equipe
-    )
-
-]
-
-# =====================================================
-# VENDEDORES DAS EQUIPES FILTRADAS
-# =====================================================
-
-vendedores_meta = (
-
-    df_base_meta["Vendedor"]
-
-    .dropna()
-
-    .unique()
-
-)
-
-# =====================================================
-# META FILTRADA
-# =====================================================
-
-df_meta_filtrado = df_meta[
-
-    df_meta["Vendedor"]
-
-    .isin(vendedores_meta)
-
-]
-
-# =====================================================
-# META MÊS ATUAL
-# =====================================================
-
-meta_mes_atual = df_meta_filtrado[
-
-    (df_meta_filtrado["Ano"] == ano_atual)
-
-    &
-
-    (df_meta_filtrado["Mes"] == mes_atual)
-
-]
+    ]
 
     # =====================================================
     # META MÊS ATUAL
@@ -570,13 +570,13 @@ meta_mes_atual = df_meta_filtrado[
 
     meta_total = float(
 
-    meta_mes_atual
+        meta_mes_atual
 
-    .groupby("Vendedor")["Meta"]
+        .groupby("Vendedor")["Meta"]
 
-    .max()
+        .max()
 
-    .sum()
+        .sum()
 
     )
 
