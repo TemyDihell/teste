@@ -260,17 +260,7 @@ if link_meta and link_historico and link_mes:
         )
 
     # =====================================================
-    # TRATAMENTO DATA (NOVO MODELO SEM CAMPO DATA)
-    # =====================================================
-
-    # AGORA O SISTEMA UTILIZA DIRETAMENTE:
-    # ✅ Ano
-    # ✅ Mes
-    #
-    # NÃO PRECISA MAIS DA COLUNA "Data"
-
-    # =====================================================
-    # GARANTIR NUMÉRICOS
+    # TRATAMENTO ANO E MÊS
     # =====================================================
 
     df_vendas["Ano"] = pd.to_numeric(
@@ -283,17 +273,9 @@ if link_meta and link_historico and link_mes:
         errors="coerce"
     )
 
-    # =====================================================
-    # REMOVER LINHAS INVÁLIDAS
-    # =====================================================
-
     df_vendas = df_vendas.dropna(
         subset=["Ano", "Mes"]
     )
-
-    # =====================================================
-    # CONVERTER PARA INT
-    # =====================================================
 
     df_vendas["Ano"] = (
         df_vendas["Ano"]
@@ -304,10 +286,6 @@ if link_meta and link_historico and link_mes:
         df_vendas["Mes"]
         .astype(int)
     )
-
-    # =====================================================
-    # NOME DOS MESES
-    # =====================================================
 
     meses_br = {
         1: "Jan",
@@ -328,14 +306,6 @@ if link_meta and link_historico and link_mes:
         df_vendas["Mes"]
         .map(meses_br)
     )
-
-    # =====================================================
-    # ANO E MÊS ATUAL
-    # =====================================================
-
-    ano_atual = datetime.now().year
-    mes_atual = datetime.now().month
-
 
     # =====================================================
     # CONVERSÕES
@@ -650,10 +620,6 @@ if link_meta and link_historico and link_mes:
             1
         ) - pd.Timedelta(days=1)
 
-    # =====================================================
-    # DIAS ÚTEIS
-    # =====================================================
-
     dias_uteis_mes = pd.bdate_range(
         start=primeiro_dia_mes,
         end=ultimo_dia_mes
@@ -681,10 +647,6 @@ if link_meta and link_historico and link_mes:
 
         dias_restantes = 0
 
-    # =====================================================
-    # MÉDIA DIÁRIA
-    # =====================================================
-
     media_diaria = (
 
         faturamento / dias_decorridos
@@ -694,10 +656,6 @@ if link_meta and link_historico and link_mes:
         else 0
 
     )
-
-    # =====================================================
-    # TENDÊNCIA
-    # =====================================================
 
     tendencia_final = (
         media_diaria
@@ -713,10 +671,6 @@ if link_meta and link_historico and link_mes:
         else 0
 
     )
-
-    # =====================================================
-    # OBJETIVO DIA
-    # =====================================================
 
     falta_meta = (
         meta_total
@@ -799,53 +753,6 @@ if link_meta and link_historico and link_mes:
         moeda_br(objetivo_dia)
     )
 
-    # =====================================================
-    # STATUS META
-    # =====================================================
-
-    if atingimento >= 100:
-
-        st.success(
-            "✅ Meta Batida"
-        )
-
-    elif atingimento >= 80:
-
-        st.warning(
-            "⚠️ Atenção"
-        )
-
-    else:
-
-        st.error(
-            "❌ Abaixo da Meta"
-        )
-
-    # =====================================================
-    # STATUS TENDÊNCIA
-    # =====================================================
-
-    if percentual_tendencia >= 100:
-
-        st.success(
-            f"🚀 Tendência de fechamento em "
-            f"{percentual_tendencia:.1f}% da meta"
-        )
-
-    elif percentual_tendencia >= 90:
-
-        st.warning(
-            f"⚠️ Tendência de fechamento em "
-            f"{percentual_tendencia:.1f}% da meta"
-        )
-
-    else:
-
-        st.error(
-            f"❌ Tendência de fechamento em "
-            f"{percentual_tendencia:.1f}% da meta"
-        )
-
     st.divider()
 
     # =====================================================
@@ -925,68 +832,6 @@ if link_meta and link_historico and link_mes:
     )
 
     # =====================================================
-    # EVOLUÇÃO MENSAL
-    # =====================================================
-
-    st.subheader(
-        "📈 Evolução Mensal"
-    )
-
-    evolucao = (
-        df_filtrado
-        .groupby(["Ano", "Mes"])
-        ["Valor Venda"]
-        .sum()
-        .reset_index()
-    )
-
-    fig_evolucao = px.line(
-        evolucao,
-        x="Mes",
-        y="Valor Venda",
-        color="Ano",
-        markers=True
-    )
-
-    st.plotly_chart(
-        fig_evolucao,
-        use_container_width=True
-    )
-
-    # =====================================================
-    # TOP PRODUTOS
-    # =====================================================
-
-    st.subheader(
-        "📦 Top Produtos"
-    )
-
-    top_produtos = (
-        df_mes_atual
-        .groupby("Produto")
-        ["Valor Venda"]
-        .sum()
-        .reset_index()
-        .sort_values(
-            by="Valor Venda",
-            ascending=False
-        )
-        .head(10)
-    )
-
-    fig_produtos = px.bar(
-        top_produtos,
-        x="Produto",
-        y="Valor Venda",
-        text_auto=True
-    )
-
-    st.plotly_chart(
-        fig_produtos,
-        use_container_width=True
-    )
-
-    # =====================================================
     # BATALHA NAVAL
     # =====================================================
 
@@ -1060,24 +905,6 @@ if link_meta and link_historico and link_mes:
         detalhamento,
         use_container_width=True,
         height=600
-    )
-
-    # =====================================================
-    # EXPORTAÇÃO CSV
-    # =====================================================
-
-    @st.cache_data
-    def gerar_csv(df_export):
-
-        return df_export.to_csv(
-            index=False
-        ).encode("utf-8")
-
-    st.download_button(
-        "📥 Baixar Detalhamento CSV",
-        gerar_csv(detalhamento),
-        "detalhamento.csv",
-        "text/csv"
     )
 
 else:
