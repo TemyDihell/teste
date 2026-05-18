@@ -5,9 +5,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
-import calendar
 import requests
 from io import BytesIO
 
@@ -44,6 +42,21 @@ def converter_brasil_numero(serie):
         errors="coerce"
 
     ).fillna(0)
+
+
+def moeda_br(valor):
+
+    return (
+
+        f"R$ {valor:,.2f}"
+
+        .replace(",", "X")
+
+        .replace(".", ",")
+
+        .replace("X", ".")
+
+    )
 
 
 def extrair_file_id(link):
@@ -119,7 +132,10 @@ def carregar_excel_google(link):
                 f"uc?export=download&id={file_id}"
             )
 
-            response = requests.get(download_url)
+            response = requests.get(
+                download_url,
+                timeout=30
+            )
 
             return pd.read_excel(
                 BytesIO(response.content),
@@ -131,6 +147,7 @@ def carregar_excel_google(link):
         raise Exception(
             f"Erro ao carregar planilha: {e}"
         )
+
 
 # =========================================================
 # SIDEBAR LINKS
@@ -189,7 +206,7 @@ if link_meta and link_historico and link_mes:
     df_vendas = pd.concat(
         [df_historico, df_mes],
         ignore_index=True
-    )
+    ).drop_duplicates()
 
     # =====================================================
     # TRATAMENTO
@@ -216,9 +233,24 @@ if link_meta and link_historico and link_mes:
         df_vendas["Data"].dt.day
     )
 
+    meses_br = {
+        1: "Jan",
+        2: "Fev",
+        3: "Mar",
+        4: "Abr",
+        5: "Mai",
+        6: "Jun",
+        7: "Jul",
+        8: "Ago",
+        9: "Set",
+        10: "Out",
+        11: "Nov",
+        12: "Dez"
+    }
+
     df_vendas["Nome Mes"] = (
         df_vendas["Mes"]
-        .apply(lambda x: calendar.month_abbr[x])
+        .map(meses_br)
     )
 
     # =====================================================
@@ -247,71 +279,55 @@ if link_meta and link_historico and link_mes:
     mes_atual = datetime.now().month
 
     # =====================================================
-    # MERGE
-    # =====================================================
-
-    df = pd.merge(
-        df_vendas,
-        df_meta,
-        how="left",
-        on=["Ano", "Mes", "Vendedor"]
-    )
-
-    df["Meta"] = (
-        df["Meta"]
-        .fillna(0)
-    )
-
-    # =====================================================
     # FILTROS
     # =====================================================
 
     st.sidebar.header("🎯 Filtros")
 
     vendedores = sorted(
-        df["Vendedor"]
+        df_vendas["Vendedor"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     equipes = sorted(
-        df["Equipe"]
+        df_vendas["Equipe"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     cidades = sorted(
-        df["Cidade"]
+        df_vendas["Cidade"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     fabricantes = sorted(
-        df["Fabricante"]
+        df_vendas["Fabricante"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     produtos = sorted(
-        df["Produto"]
+        df_vendas["Produto"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     clientes_lista = sorted(
-        df["Cliente"]
+        df_vendas["Cliente"]
         .dropna()
         .astype(str)
         .unique()
     )
 
     meses = sorted(
-        df["Mes"]
+        df_vendas["Mes"]
         .dropna()
         .unique()
     )
@@ -368,49 +384,51 @@ if link_meta and link_historico and link_mes:
 
     filtro_df = (
 
-        df["Vendedor"].isin(
+        df_vendas["Vendedor"].isin(
             filtro_vendedor
         )
 
         &
 
-        df["Equipe"].isin(
+        df_vendas["Equipe"].isin(
             filtro_equipe
         )
 
         &
 
-        df["Cidade"].isin(
+        df_vendas["Cidade"].isin(
             filtro_cidade
         )
 
         &
 
-        df["Fabricante"].isin(
+        df_vendas["Fabricante"].isin(
             filtro_fabricante
         )
 
         &
 
-        df["Produto"].isin(
+        df_vendas["Produto"].isin(
             filtro_produto
         )
 
         &
 
-        df["Cliente"].isin(
+        df_vendas["Cliente"].isin(
             filtro_cliente
         )
 
         &
 
-        df["Mes"].isin(
+        df_vendas["Mes"].isin(
             filtro_mes
         )
 
     )
 
-    df = df[filtro_df]
+    df_filtrado = df_vendas[
+        filtro_df
+    ]
 
     # =====================================================
     # FILTRO META
@@ -425,13 +443,23 @@ if link_meta and link_historico and link_mes:
         &
 
         df_meta["Equipe"]
-    .astype(str)
-    .isin(filtro_equipe)
-        
+        .astype(str)
+        .isin(filtro_equipe)
+
+        &
+
+        df_meta["Cidade"]
+        .astype(str)
+        .isin(filtro_cidade)
+
+        &
+
+        df_meta["Mes"]
+        .isin(filtro_mes)
 
     )
 
-    df_meta = df_meta[
+    df_meta_filtrado = df_meta[
         filtro_meta
     ]
 
@@ -439,13 +467,13 @@ if link_meta and link_historico and link_mes:
     # MÊS ATUAL
     # =====================================================
 
-    df_mes_atual = df[
+    df_mes_atual = df_filtrado[
 
-        (df["Ano"] == ano_atual)
+        (df_filtrado["Ano"] == ano_atual)
 
         &
 
-        (df["Mes"] == mes_atual)
+        (df_filtrado["Mes"] == mes_atual)
 
     ]
 
@@ -453,39 +481,13 @@ if link_meta and link_historico and link_mes:
     # META MÊS ATUAL
     # =====================================================
 
-    meta_mes_atual = df_meta[
+    meta_mes_atual = df_meta_filtrado[
 
-        (df_meta["Ano"] == ano_atual)
+        (df_meta_filtrado["Ano"] == ano_atual)
 
         &
 
-        (df_meta["Mes"] == mes_atual)
-
-    ]
-
-    # =====================================================
-    # SINCRONIZAR META COM FILTROS
-    # =====================================================
-
-    vendedores_filtrados = (
-
-        df_mes_atual["Vendedor"]
-
-        .dropna()
-
-        .astype(str)
-
-        .unique()
-
-    )
-
-    meta_mes_atual = meta_mes_atual[
-
-        meta_mes_atual["Vendedor"]
-
-        .astype(str)
-
-        .isin(vendedores_filtrados)
+        (df_meta_filtrado["Mes"] == mes_atual)
 
     ]
 
@@ -508,27 +510,27 @@ if link_meta and link_historico and link_mes:
         .nunique()
     )
 
-    meta_total = float(
+    meta_total = (
 
         meta_mes_atual
 
-        .drop_duplicates(
-            subset=["Vendedor"]
-        )["Meta"]
+        .groupby("Vendedor")["Meta"]
+
+        .max()
 
         .sum()
 
     )
 
-    if meta_total > 0:
+    atingimento = (
 
-        atingimento = (
-            faturamento / meta_total
-        ) * 100
+        (faturamento / meta_total) * 100
 
-    else:
+        if meta_total > 0
 
-        atingimento = 0
+        else 0
+
+    )
 
     ticket_medio = (
 
@@ -553,12 +555,12 @@ if link_meta and link_historico and link_mes:
 
     c1.metric(
         "💰 Faturamento",
-        f"R$ {faturamento:,.2f}"
+        moeda_br(faturamento)
     )
 
     c2.metric(
         "🎯 Meta",
-        f"R$ {meta_total:,.2f}"
+        moeda_br(meta_total)
     )
 
     c3.metric(
@@ -575,6 +577,28 @@ if link_meta and link_historico and link_mes:
         "📦 Mix Produtos",
         mix_produtos
     )
+
+    # =====================================================
+    # STATUS META
+    # =====================================================
+
+    if atingimento >= 100:
+
+        st.success(
+            "✅ Meta Batida"
+        )
+
+    elif atingimento >= 80:
+
+        st.warning(
+            "⚠️ Atenção"
+        )
+
+    else:
+
+        st.error(
+            "❌ Abaixo da Meta"
+        )
 
     st.divider()
 
@@ -598,7 +622,7 @@ if link_meta and link_historico and link_mes:
         meta_mes_atual
         .groupby("Vendedor")
         ["Meta"]
-        .sum()
+        .max()
         .reset_index()
     )
 
@@ -651,6 +675,68 @@ if link_meta and link_historico and link_mes:
 
     st.plotly_chart(
         fig_rank,
+        use_container_width=True
+    )
+
+    # =====================================================
+    # EVOLUÇÃO MENSAL
+    # =====================================================
+
+    st.subheader(
+        "📈 Evolução Mensal"
+    )
+
+    evolucao = (
+        df_filtrado
+        .groupby(["Ano", "Mes"])
+        ["Valor Venda"]
+        .sum()
+        .reset_index()
+    )
+
+    fig_evolucao = px.line(
+        evolucao,
+        x="Mes",
+        y="Valor Venda",
+        color="Ano",
+        markers=True
+    )
+
+    st.plotly_chart(
+        fig_evolucao,
+        use_container_width=True
+    )
+
+    # =====================================================
+    # TOP PRODUTOS
+    # =====================================================
+
+    st.subheader(
+        "📦 Top Produtos"
+    )
+
+    top_produtos = (
+        df_mes_atual
+        .groupby("Produto")
+        ["Valor Venda"]
+        .sum()
+        .reset_index()
+        .sort_values(
+            by="Valor Venda",
+            ascending=False
+        )
+        .head(10)
+    )
+
+    fig_produtos = px.bar(
+        top_produtos,
+        x="Produto",
+        y="Valor Venda",
+        text_auto=True
+    )
+
+    st.plotly_chart(
+        fig_produtos,
         use_container_width=True
     )
 
@@ -728,6 +814,24 @@ if link_meta and link_historico and link_mes:
         detalhamento,
         use_container_width=True,
         height=600
+    )
+
+    # =====================================================
+    # EXPORTAÇÃO
+    # =====================================================
+
+    @st.cache_data
+    def gerar_csv(df_export):
+
+        return df_export.to_csv(
+            index=False
+        ).encode("utf-8")
+
+    st.download_button(
+        "📥 Baixar Detalhamento CSV",
+        gerar_csv(detalhamento),
+        "detalhamento.csv",
+        "text/csv"
     )
 
 else:
