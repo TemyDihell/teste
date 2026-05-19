@@ -199,93 +199,218 @@ if link_meta and link_historico and link_mes:
         st.stop()
 
     # =====================================================
-    # LIMPAR COLUNAS
+    # LIMPAR E PADRONIZAR COLUNAS
     # =====================================================
 
-    df_meta.columns = (
-        df_meta.columns
-        .str.strip()
+    def padronizar_colunas(df):
+
+        df.columns = (
+
+            df.columns
+
+            .str.strip()
+
+            .str.upper()
+
+        )
+
+        return df
+
+    df_meta = padronizar_colunas(df_meta)
+    df_historico = padronizar_colunas(df_historico)
+    df_mes = padronizar_colunas(df_mes)
+
+    # =====================================================
+    # RENOMEAR COLUNAS
+    # =====================================================
+
+    mapa_colunas = {
+
+        "VENDA R$": "VALOR VENDA",
+        "VENDA": "VALOR VENDA",
+        "VALOR": "VALOR VENDA",
+        "QTDE": "QUANTIDADE",
+        "QTD": "QUANTIDADE"
+
+    }
+
+    df_historico = df_historico.rename(
+        columns=mapa_colunas
     )
 
-    df_historico.columns = (
-        df_historico.columns
-        .str.strip()
-    )
-
-    df_mes.columns = (
-        df_mes.columns
-        .str.strip()
+    df_mes = df_mes.rename(
+        columns=mapa_colunas
     )
 
     # =====================================================
-    # CONCATENAR VENDAS
+    # CONCATENAR
     # =====================================================
 
     df_vendas = pd.concat(
         [df_historico, df_mes],
         ignore_index=True
-    ).drop_duplicates()
+    )
 
     # =====================================================
-    # NORMALIZAR TEXTO
+    # VALIDAR COLUNAS
+    # =====================================================
+
+    colunas_vendas = [
+        "ANO",
+        "MES",
+        "VENDEDOR",
+        "EQUIPE",
+        "CIDADE",
+        "FABRICANTE",
+        "PRODUTO",
+        "CLIENTE",
+        "VALOR VENDA",
+        "QUANTIDADE"
+    ]
+
+    colunas_meta = [
+        "ANO",
+        "MES",
+        "VENDEDOR",
+        "META"
+    ]
+
+    faltando_vendas = [
+
+        coluna
+
+        for coluna in colunas_vendas
+
+        if coluna not in df_vendas.columns
+
+    ]
+
+    faltando_meta = [
+
+        coluna
+
+        for coluna in colunas_meta
+
+        if coluna not in df_meta.columns
+
+    ]
+
+    if faltando_vendas:
+
+        st.error(
+            f"""
+            Colunas ausentes em vendas:
+
+            {faltando_vendas}
+            """
+        )
+
+        st.stop()
+
+    if faltando_meta:
+
+        st.error(
+            f"""
+            Colunas ausentes em metas:
+
+            {faltando_meta}
+            """
+        )
+
+        st.stop()
+
+    # =====================================================
+    # PADRONIZAR TEXTO
     # =====================================================
 
     colunas_texto = [
-        "Vendedor",
-        "Equipe",
-        "Cidade",
-        "Fabricante",
-        "Produto",
-        "Cliente"
+        "VENDEDOR",
+        "EQUIPE",
+        "CIDADE",
+        "FABRICANTE",
+        "PRODUTO",
+        "CLIENTE"
     ]
 
     for coluna in colunas_texto:
 
-        if coluna in df_vendas.columns:
+        df_vendas[coluna] = (
 
-            df_vendas[coluna] = (
-                df_vendas[coluna]
-                .astype(str)
-                .str.upper()
-                .str.strip()
-            )
+            df_vendas[coluna]
 
-    if "Vendedor" in df_meta.columns:
-
-        df_meta["Vendedor"] = (
-            df_meta["Vendedor"]
             .astype(str)
+
             .str.upper()
+
             .str.strip()
+
         )
 
+    df_meta["VENDEDOR"] = (
+
+        df_meta["VENDEDOR"]
+
+        .astype(str)
+
+        .str.upper()
+
+        .str.strip()
+
+    )
+
     # =====================================================
-    # TRATAMENTO ANO E MÊS
+    # CONVERSÕES
     # =====================================================
 
-    df_vendas["Ano"] = pd.to_numeric(
-        df_vendas["Ano"],
+    df_vendas["ANO"] = pd.to_numeric(
+        df_vendas["ANO"],
         errors="coerce"
     )
 
-    df_vendas["Mes"] = pd.to_numeric(
-        df_vendas["Mes"],
+    df_vendas["MES"] = pd.to_numeric(
+        df_vendas["MES"],
         errors="coerce"
     )
+
+    df_vendas["VALOR VENDA"] = (
+        converter_brasil_numero(
+            df_vendas["VALOR VENDA"]
+        )
+    )
+
+    df_vendas["QUANTIDADE"] = (
+        converter_brasil_numero(
+            df_vendas["QUANTIDADE"]
+        )
+    )
+
+    df_meta["META"] = (
+        converter_brasil_numero(
+            df_meta["META"]
+        )
+    )
+
+    # =====================================================
+    # REMOVER INVÁLIDOS
+    # =====================================================
 
     df_vendas = df_vendas.dropna(
-        subset=["Ano", "Mes"]
+        subset=["ANO", "MES"]
     )
 
-    df_vendas["Ano"] = (
-        df_vendas["Ano"]
+    df_vendas["ANO"] = (
+        df_vendas["ANO"]
         .astype(int)
     )
 
-    df_vendas["Mes"] = (
-        df_vendas["Mes"]
+    df_vendas["MES"] = (
+        df_vendas["MES"]
         .astype(int)
     )
+
+    # =====================================================
+    # MÊS NOME
+    # =====================================================
 
     meses_br = {
         1: "Jan",
@@ -302,32 +427,14 @@ if link_meta and link_historico and link_mes:
         12: "Dez"
     }
 
-    df_vendas["Nome Mes"] = (
-        df_vendas["Mes"]
+    df_vendas["NOME MES"] = (
+        df_vendas["MES"]
         .map(meses_br)
     )
 
     # =====================================================
-    # CONVERSÕES
+    # DATA ATUAL
     # =====================================================
-
-    df_vendas["Valor Venda"] = (
-        converter_brasil_numero(
-            df_vendas["Valor Venda"]
-        )
-    )
-
-    df_vendas["Quantidade"] = (
-        converter_brasil_numero(
-            df_vendas["Quantidade"]
-        )
-    )
-
-    df_meta["Meta"] = (
-        converter_brasil_numero(
-            df_meta["Meta"]
-        )
-    )
 
     ano_atual = datetime.now().year
     mes_atual = datetime.now().month
@@ -339,43 +446,43 @@ if link_meta and link_historico and link_mes:
     st.sidebar.header("🎯 Filtros")
 
     vendedores = sorted(
-        df_vendas["Vendedor"]
+        df_vendas["VENDEDOR"]
         .dropna()
         .unique()
     )
 
     equipes = sorted(
-        df_vendas["Equipe"]
+        df_vendas["EQUIPE"]
         .dropna()
         .unique()
     )
 
     cidades = sorted(
-        df_vendas["Cidade"]
+        df_vendas["CIDADE"]
         .dropna()
         .unique()
     )
 
     fabricantes = sorted(
-        df_vendas["Fabricante"]
+        df_vendas["FABRICANTE"]
         .dropna()
         .unique()
     )
 
     produtos = sorted(
-        df_vendas["Produto"]
+        df_vendas["PRODUTO"]
         .dropna()
         .unique()
     )
 
     clientes_lista = sorted(
-        df_vendas["Cliente"]
+        df_vendas["CLIENTE"]
         .dropna()
         .unique()
     )
 
     meses = sorted(
-        df_vendas["Mes"]
+        df_vendas["MES"]
         .dropna()
         .unique()
     )
@@ -423,7 +530,7 @@ if link_meta and link_historico and link_mes:
     filtro_mes = st.sidebar.multiselect(
         "📅 Mês",
         meses,
-        default=meses
+        default=[mes_atual]
     )
 
     # =====================================================
@@ -432,43 +539,43 @@ if link_meta and link_historico and link_mes:
 
     filtro_df = (
 
-        df_vendas["Vendedor"].isin(
+        df_vendas["VENDEDOR"].isin(
             filtro_vendedor
         )
 
         &
 
-        df_vendas["Equipe"].isin(
+        df_vendas["EQUIPE"].isin(
             filtro_equipe
         )
 
         &
 
-        df_vendas["Cidade"].isin(
+        df_vendas["CIDADE"].isin(
             filtro_cidade
         )
 
         &
 
-        df_vendas["Fabricante"].isin(
+        df_vendas["FABRICANTE"].isin(
             filtro_fabricante
         )
 
         &
 
-        df_vendas["Produto"].isin(
+        df_vendas["PRODUTO"].isin(
             filtro_produto
         )
 
         &
 
-        df_vendas["Cliente"].isin(
+        df_vendas["CLIENTE"].isin(
             filtro_cliente
         )
 
         &
 
-        df_vendas["Mes"].isin(
+        df_vendas["MES"].isin(
             filtro_mes
         )
 
@@ -479,89 +586,65 @@ if link_meta and link_historico and link_mes:
     ]
 
     # =====================================================
-    # FILTRO META
+    # KPI SOMENTE MÊS ATUAL
     # =====================================================
 
-    # META RESPEITA SOMENTE:
-    # ✅ VENDEDOR
-    # ✅ EQUIPE
+    df_kpi = df_filtrado[
 
-    df_base_meta = df_vendas[
-
-        df_vendas["Vendedor"].isin(
-            filtro_vendedor
-        )
+        (df_filtrado["ANO"] == ano_atual)
 
         &
 
-        df_vendas["Equipe"].isin(
-            filtro_equipe
-        )
+        (df_filtrado["MES"] == mes_atual)
 
     ]
+
+    # =====================================================
+    # META
+    # =====================================================
 
     vendedores_meta = (
-
-        df_base_meta["Vendedor"]
-
+        df_filtrado["VENDEDOR"]
         .dropna()
-
         .unique()
-
     )
 
-    df_meta_filtrado = df_meta[
+    meta_mes_atual = df_meta[
 
-        df_meta["Vendedor"]
-
-        .isin(vendedores_meta)
-
-    ]
-
-    # =====================================================
-    # MÊS ATUAL
-    # =====================================================
-
-    df_mes_atual = df_filtrado[
-
-        (df_filtrado["Ano"] == ano_atual)
+        (df_meta["ANO"] == ano_atual)
 
         &
 
-        (df_filtrado["Mes"] == mes_atual)
-
-    ]
-
-    # =====================================================
-    # META MÊS ATUAL
-    # =====================================================
-
-    meta_mes_atual = df_meta_filtrado[
-
-        (df_meta_filtrado["Ano"] == ano_atual)
+        (df_meta["MES"] == mes_atual)
 
         &
 
-        (df_meta_filtrado["Mes"] == mes_atual)
+        (df_meta["VENDEDOR"]
+         .isin(vendedores_meta))
 
     ]
 
     # =====================================================
-    # KPIs PRINCIPAIS
+    # KPIs
     # =====================================================
 
     faturamento = float(
-        df_mes_atual["Valor Venda"]
+        df_kpi["VALOR VENDA"]
         .sum()
     )
 
     quantidade = float(
-        df_mes_atual["Quantidade"]
+        df_kpi["QUANTIDADE"]
         .sum()
     )
 
     clientes = int(
-        df_mes_atual["Cliente"]
+        df_kpi["CLIENTE"]
+        .nunique()
+    )
+
+    mix_produtos = int(
+        df_kpi["PRODUTO"]
         .nunique()
     )
 
@@ -569,7 +652,7 @@ if link_meta and link_historico and link_mes:
 
         meta_mes_atual
 
-        .groupby("Vendedor")["Meta"]
+        .groupby("VENDEDOR")["META"]
 
         .max()
 
@@ -587,13 +670,8 @@ if link_meta and link_historico and link_mes:
 
     )
 
-    mix_produtos = int(
-        df_mes_atual["Produto"]
-        .nunique()
-    )
-
     # =====================================================
-    # KPI DIAS ÚTEIS / TENDÊNCIA / OBJETIVO DIA
+    # DIAS ÚTEIS
     # =====================================================
 
     hoje = datetime.now()
@@ -643,10 +721,6 @@ if link_meta and link_historico and link_mes:
         - dias_decorridos
     )
 
-    if dias_restantes < 0:
-
-        dias_restantes = 0
-
     media_diaria = (
 
         faturamento / dias_decorridos
@@ -662,24 +736,10 @@ if link_meta and link_historico and link_mes:
         * total_dias_uteis
     )
 
-    percentual_tendencia = (
-
-        (tendencia_final / meta_total) * 100
-
-        if meta_total > 0
-
-        else 0
-
-    )
-
     falta_meta = (
         meta_total
         - faturamento
     )
-
-    if falta_meta < 0:
-
-        falta_meta = 0
 
     objetivo_dia = (
 
@@ -764,17 +824,17 @@ if link_meta and link_historico and link_mes:
     )
 
     vendas_mes = (
-        df_mes_atual
-        .groupby("Vendedor")
-        ["Valor Venda"]
+        df_filtrado
+        .groupby("VENDEDOR")
+        ["VALOR VENDA"]
         .sum()
         .reset_index()
     )
 
     meta_mes = (
         meta_mes_atual
-        .groupby("Vendedor")
-        ["Meta"]
+        .groupby("VENDEDOR")
+        ["META"]
         .max()
         .reset_index()
     )
@@ -783,13 +843,13 @@ if link_meta and link_historico and link_mes:
         vendas_mes,
         meta_mes,
         how="outer",
-        on="Vendedor"
+        on="VENDEDOR"
     ).fillna(0)
 
     fig_meta = px.bar(
         meta_realizado,
-        x="Vendedor",
-        y=["Valor Venda", "Meta"],
+        x="VENDEDOR",
+        y=["VALOR VENDA", "META"],
         barmode="group",
         text_auto=True
     )
@@ -808,74 +868,27 @@ if link_meta and link_historico and link_mes:
     )
 
     ranking = (
-        df_mes_atual
-        .groupby("Vendedor")
-        ["Valor Venda"]
+        df_filtrado
+        .groupby("VENDEDOR")
+        ["VALOR VENDA"]
         .sum()
         .reset_index()
         .sort_values(
-            by="Valor Venda",
+            by="VALOR VENDA",
             ascending=False
         )
     )
 
     fig_rank = px.bar(
         ranking,
-        x="Vendedor",
-        y="Valor Venda",
+        x="VENDEDOR",
+        y="VALOR VENDA",
         text_auto=True
     )
 
     st.plotly_chart(
         fig_rank,
         use_container_width=True
-    )
-
-    # =====================================================
-    # BATALHA NAVAL
-    # =====================================================
-
-    st.subheader(
-        "📌 Batalha Naval"
-    )
-
-    fabricante = (
-        df_mes_atual
-        .groupby("Fabricante")
-        ["Valor Venda"]
-        .sum()
-        .reset_index()
-    )
-
-    top_fabricantes = (
-        fabricante
-        .sort_values(
-            by="Valor Venda",
-            ascending=False
-        )
-        .head(10)
-        ["Fabricante"]
-    )
-
-    df_batalha = df_mes_atual[
-        df_mes_atual["Fabricante"]
-        .isin(top_fabricantes)
-    ]
-
-    batalha = pd.crosstab(
-        df_batalha["Cliente"],
-        df_batalha["Fabricante"]
-    )
-
-    batalha = batalha.map(
-        lambda x:
-        "✅" if x > 0 else ""
-    )
-
-    st.dataframe(
-        batalha,
-        use_container_width=True,
-        height=500
     )
 
     # =====================================================
@@ -886,23 +899,8 @@ if link_meta and link_historico and link_mes:
         "📋 Detalhamento"
     )
 
-    detalhamento = (
-        df_mes_atual
-        .groupby([
-            "Vendedor",
-            "Cliente",
-            "Fabricante",
-            "Produto"
-        ])
-        .agg({
-            "Quantidade": "sum",
-            "Valor Venda": "sum"
-        })
-        .reset_index()
-    )
-
     st.dataframe(
-        detalhamento,
+        df_filtrado,
         use_container_width=True,
         height=600
     )
